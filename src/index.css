@@ -71,6 +71,17 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-  }
+  margin: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  background-color: #000000;
+  height: 100%;
+  width: 100%;
+  
+  /* FIX: Use Safe Area, but force 35px if it fails */
+  padding-top: max(env(safe-area-inset-top), 35px); 
+  padding-bottom: env(safe-area-inset-bottom);
+}
 }

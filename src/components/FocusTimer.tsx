@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useVectorStore } from '../store/useVectorStore';
-import { Play, Octagon, EyeOff, Lock, Unlock, Clock } from 'lucide-react';
+import { Play, Octagon, Lock, Unlock, Clock } from 'lucide-react';
 
 export function FocusTimer() {
   const { processFocusSession } = useVectorStore();

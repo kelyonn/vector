@@ -6,7 +6,7 @@ import { Nexus } from './components/Nexus';
 import { FocusTimer } from './components/FocusTimer';
 import { Ledger } from './components/Ledger';
 import { AttributeCards } from './components/AttributeCards';
-import { Battery, ShieldAlert, RotateCcw, ChevronDown, ChevronUp, LayoutDashboard, ListTodo } from 'lucide-react';
+import { Battery, ShieldAlert, ChevronDown, ChevronUp, LayoutDashboard, ListTodo } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {

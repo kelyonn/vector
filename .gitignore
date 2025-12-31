@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
 dist
 dist-ssr
@@ -18,7 +19,16 @@ dist-ssr
 .idea
 .DS_Store
 *.suo
-*.ntvs*
+*.ntvs
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor (Native builds - keep these!)
+# We DO want to commit 'android' and 'ios' folders so we can save the app config.
+# But we ignore the generated web assets inside them.
+android/app/src/main/assets/public
+ios/App/App/public
+
+# OS generated files
+Thumbs.db

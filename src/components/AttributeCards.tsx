@@ -1,5 +1,7 @@
-import { useVectorStore, type AttributeType } from '../store/useVectorStore';
 import { motion } from 'framer-motion';
+
+import { useVectorStore } from '@/store/useVectorStore';
+import type { AttributeType } from '@/types';
 
 export function AttributeCards() {
   const { attributes } = useVectorStore();

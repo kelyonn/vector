@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useVectorStore, type AttributeType } from '../store/useVectorStore';
-import { Plus, Trash2, CheckCircle2, Circle, Settings2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Trash2, CheckCircle2, Circle, Settings2, X } from 'lucide-react';
+
+import { useVectorStore } from '@/store/useVectorStore';
+import type { AttributeType } from '@/types';
 
 export function TaskList() {
   const { tasks, addTask, toggleTask, deleteTask, protocols, addProtocol, removeProtocol } = useVectorStore();

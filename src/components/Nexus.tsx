@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { useVectorStore } from '../store/useVectorStore';
+
+import { useVectorStore } from '@/store/useVectorStore';
 
 export function Nexus() {
   const { evolutionStage, integrity } = useVectorStore();

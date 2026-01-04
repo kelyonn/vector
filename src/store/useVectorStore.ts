@@ -1,66 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// 1. NEW ATTRIBUTES (5 Pillars + Others)
-export type AttributeType = 'strength' | 'intellect' | 'create' | 'mind' | 'work' | 'others';
+import { INITIAL_ATTRS, DEFAULT_IRON_RULES } from '@/constants';
+import type { DailySnapshot, ExportData, VectorState } from '@/types';
 
-export interface Task {
-  id: string;
-  text: string;
-  type: AttributeType;
-  completed: boolean;
-  xpValue: number;
-  isSystem?: boolean; // "Iron Rule" flag
-}
-
-export interface Attribute {
-  level: number;
-  currentXP: number;
-  xpToNextLevel: number;
-}
-
-export interface VectorState {
-  attributes: Record<AttributeType, Attribute>;
-  integrity: number;
-  energy: number;
-  wallet: number;
-  tasks: Task[];
-  protocols: Task[]; // The "Iron Rules" templates
-  lastResetDate: string; // To track 00:00 resets
-  evolutionStage: number;
-
-  // Actions
-  addTask: (text: string, type: AttributeType, xpValue: number, isSystem?: boolean) => void;
-  toggleTask: (id: string) => void;
-  deleteTask: (id: string) => void;
-  
-  // Iron Rules Management
-  addProtocol: (text: string, type: AttributeType, xpValue: number) => void;
-  removeProtocol: (id: string) => void;
-  
-  // System
-  checkDailyReset: () => void; // The 00:00 logic
-  setIntegrity: (val: number) => void;
-  processFocusSession: (minutes: number, success: boolean, distractions: number) => void;
-  updateWallet: (amount: number) => void;
-}
-
-const INITIAL_ATTRS: Record<AttributeType, Attribute> = {
-  strength: { level: 1, currentXP: 0, xpToNextLevel: 100 },
-  intellect: { level: 1, currentXP: 0, xpToNextLevel: 100 },
-  create:    { level: 1, currentXP: 0, xpToNextLevel: 100 },
-  mind:      { level: 1, currentXP: 0, xpToNextLevel: 100 },
-  work:      { level: 1, currentXP: 0, xpToNextLevel: 100 },
-  others:    { level: 1, currentXP: 0, xpToNextLevel: 100 },
-};
-
-// 2. DEFAULT IRON RULES (2.5 XP each)
-const DEFAULT_IRON_RULES: Task[] = [
-  { id: 'iron-1', text: 'Sleep 6hr+', type: 'strength', xpValue: 2.5, completed: false, isSystem: true },
-  { id: 'iron-2', text: 'Drink 3L Water', type: 'strength', xpValue: 2.5, completed: false, isSystem: true },
-  { id: 'iron-3', text: 'Clean Room', type: 'mind', xpValue: 2.5, completed: false, isSystem: true },
-  { id: 'iron-4', text: 'Shower / Groom', type: 'strength', xpValue: 2.5, completed: false, isSystem: true },
-];
+const MAX_SNAPSHOTS = 365; // Keep last 365 days of history
 
 export const useVectorStore = create<VectorState>()(
   persist(
@@ -73,6 +17,7 @@ export const useVectorStore = create<VectorState>()(
       protocols: [...DEFAULT_IRON_RULES],
       lastResetDate: new Date().toDateString(),
       evolutionStage: 1,
+      snapshots: [],
 
       addTask: (text, type, xpValue, isSystem = false) =>
         set((state) => ({
@@ -87,7 +32,6 @@ export const useVectorStore = create<VectorState>()(
             const newProto = { id: crypto.randomUUID(), text, type, xpValue, completed: false, isSystem: true };
             return {
                 protocols: [...state.protocols, newProto],
-                // Add to current day immediately if added
                 tasks: [...state.tasks, newProto]
             };
         }),
@@ -95,7 +39,7 @@ export const useVectorStore = create<VectorState>()(
       removeProtocol: (id) =>
         set((state) => ({
             protocols: state.protocols.filter(p => p.id !== id),
-            tasks: state.tasks.filter(t => t.id !== id) // Remove from active list too
+            tasks: state.tasks.filter(t => t.id !== id)
         })),
 
       toggleTask: (id) =>
@@ -108,7 +52,6 @@ export const useVectorStore = create<VectorState>()(
           let newState = { ...state };
 
           if (isCompleting) {
-            // XP Logic
             const attr = { ...newState.attributes[task.type] };
             attr.currentXP += task.xpValue;
             
@@ -120,13 +63,12 @@ export const useVectorStore = create<VectorState>()(
               newState.energy = Math.min(100, newState.energy + 5);
             }
             newState.attributes[task.type] = attr;
-            newState.energy = Math.max(0, newState.energy - 1); // Small cost
+            newState.energy = Math.max(0, newState.energy - 1);
           }
 
           newState.tasks = [...state.tasks];
           newState.tasks[idx] = { ...task, completed: isCompleting };
 
-          // Evolution
           const totalLevels = Object.values(newState.attributes).reduce((acc, curr) => acc + curr.level, 0);
           newState.evolutionStage = Math.max(1, Math.floor(totalLevels / 5));
 
@@ -136,19 +78,33 @@ export const useVectorStore = create<VectorState>()(
       deleteTask: (id) =>
         set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) })),
 
-      // 3. AUTO-RESET LOGIC
       checkDailyReset: () => 
         set((state) => {
             const today = new Date().toDateString();
             if (state.lastResetDate !== today) {
                 console.log("00:00 DETECTED. RESETTING CYCLE.");
                 
-                // Calculate Penalty for missed Iron Rules
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const snapshotDate = yesterday.toISOString().split('T')[0];
+                
+                const completedTasks = state.tasks.filter(t => t.completed).length;
+                const snapshot: DailySnapshot = {
+                  date: snapshotDate,
+                  attributes: { ...state.attributes },
+                  integrity: state.integrity,
+                  energy: state.energy,
+                  wallet: state.wallet,
+                  tasksCompleted: completedTasks,
+                  tasksTotal: state.tasks.length,
+                  evolutionStage: state.evolutionStage,
+                };
+
+                const updatedSnapshots = [snapshot, ...state.snapshots].slice(0, MAX_SNAPSHOTS);
+                
                 const missedIron = state.tasks.filter(t => t.isSystem && !t.completed).length;
                 const damage = missedIron * 10;
 
-                // Regenerate Tasks (Keep manual tasks? No, let's clear all for a fresh day, or keep manual? 
-                // Usually a fresh day clears everything except Iron Rules which regenerate.)
                 const freshIronRules = state.protocols.map(p => ({
                     ...p, 
                     id: crypto.randomUUID(), 
@@ -157,9 +113,10 @@ export const useVectorStore = create<VectorState>()(
 
                 return {
                     integrity: Math.max(0, state.integrity - damage),
-                    energy: 100, // Sleep restores energy
-                    tasks: freshIronRules, // Only Iron Rules persist to new day
-                    lastResetDate: today
+                    energy: 100,
+                    tasks: freshIronRules,
+                    lastResetDate: today,
+                    snapshots: updatedSnapshots,
                 };
             }
             return state;
@@ -174,8 +131,6 @@ export const useVectorStore = create<VectorState>()(
           
           const penalty = distract * 10;
           const xp = Math.max(0, mins - penalty);
-          
-          // Focus = Work XP (or Mind?) -> Let's do Work
           const attr = { ...s.attributes.work };
           attr.currentXP += xp;
            while (attr.currentXP >= attr.xpToNextLevel) {
@@ -187,6 +142,70 @@ export const useVectorStore = create<VectorState>()(
           set((prev) => ({ 
               attributes: { ...prev.attributes, work: attr } 
           }));
+      },
+
+      exportData: () => {
+        const state = get();
+        const exportData: ExportData = {
+          version: '1.0.0',
+          exportedAt: new Date().toISOString(),
+          data: {
+            attributes: state.attributes,
+            integrity: state.integrity,
+            energy: state.energy,
+            wallet: state.wallet,
+            tasks: state.tasks,
+            protocols: state.protocols,
+            lastResetDate: state.lastResetDate,
+            evolutionStage: state.evolutionStage,
+            snapshots: state.snapshots,
+          },
+          metadata: {
+            appVersion: '1.0.0',
+          },
+        };
+        return JSON.stringify(exportData, null, 2);
+      },
+
+      importData: (jsonString: string) => {
+        try {
+          const parsed: ExportData = JSON.parse(jsonString);
+          
+          if (!parsed.data || !parsed.data.attributes || !parsed.data.tasks) {
+            throw new Error('Invalid data format');
+          }
+
+          set({
+            attributes: parsed.data.attributes,
+            integrity: parsed.data.integrity ?? 100,
+            energy: parsed.data.energy ?? 100,
+            wallet: parsed.data.wallet ?? 0,
+            tasks: parsed.data.tasks,
+            protocols: parsed.data.protocols ?? parsed.data.tasks.filter(t => t.isSystem),
+            lastResetDate: parsed.data.lastResetDate ?? new Date().toDateString(),
+            evolutionStage: parsed.data.evolutionStage ?? 1,
+            snapshots: parsed.data.snapshots ?? [],
+          });
+
+          return true;
+        } catch (error) {
+          console.error('Import failed:', error);
+          return false;
+        }
+      },
+
+      resetData: () => {
+        set({
+          attributes: INITIAL_ATTRS,
+          integrity: 100,
+          energy: 100,
+          wallet: 0,
+          tasks: [...DEFAULT_IRON_RULES],
+          protocols: [...DEFAULT_IRON_RULES],
+          lastResetDate: new Date().toDateString(),
+          evolutionStage: 1,
+          snapshots: [],
+        });
       }
     }),
     { name: 'vector-storage', storage: createJSONStorage(() => localStorage) }

@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useVectorStore } from './store/useVectorStore';
-import { TaskList } from './components/TaskList';
-import { MetricRadar } from './components/MetricRadar';
-import { Nexus } from './components/Nexus';
-import { FocusTimer } from './components/FocusTimer';
-import { Ledger } from './components/Ledger';
-import { AttributeCards } from './components/AttributeCards';
-import { Battery, ShieldAlert, ChevronDown, ChevronUp, LayoutDashboard, ListTodo } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Battery, ShieldAlert, ChevronDown, ChevronUp, LayoutDashboard, ListTodo, Settings, BarChart3 } from 'lucide-react';
+
+import { Achievements } from '@/components/Achievements';
+import { AttributeCards } from '@/components/AttributeCards';
+import { FocusTimer } from '@/components/FocusTimer';
+import { Ledger } from '@/components/Ledger';
+import { MetricRadar } from '@/components/MetricRadar';
+import { Nexus } from '@/components/Nexus';
+import { Settings as SettingsComponent } from '@/components/Settings';
+import { Statistics } from '@/components/Statistics';
+import { TaskList } from '@/components/TaskList';
+import { useVectorStore } from '@/store/useVectorStore';
 
 function App() {
   const { integrity, energy, checkDailyReset } = useVectorStore();
   const [ledgerOpen, setLedgerOpen] = useState(false);
-  
-  // NEW: Mobile View State ('dashboard' or 'tasks')
-  const [mobileView, setMobileView] = useState<'dashboard' | 'tasks'>('tasks');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileView, setMobileView] = useState<'dashboard' | 'tasks' | 'stats'>('tasks');
 
   useEffect(() => {
     checkDailyReset();
@@ -39,10 +42,33 @@ function App() {
             </div>
         </div>
         
-        <button onClick={() => setLedgerOpen(!ledgerOpen)} className="flex items-center gap-1 hover:text-primary transition-colors">
-            ASSETS {ledgerOpen ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setSettingsOpen(!settingsOpen)} 
+            className="p-1.5 hover:text-primary transition-colors"
+            aria-label="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          <button onClick={() => setLedgerOpen(!ledgerOpen)} className="flex items-center gap-1 hover:text-primary transition-colors">
+              ASSETS {ledgerOpen ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
+          </button>
+        </div>
       </div>
+
+      {/* SETTINGS DRAWER */}
+      <AnimatePresence>
+        {settingsOpen && (
+            <motion.div 
+                initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                className="w-full max-w-lg overflow-hidden border-b border-border bg-card"
+            >
+                <div className="p-4">
+                    <SettingsComponent />
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* LEDGER DRAWER */}
       <AnimatePresence>
@@ -58,8 +84,8 @@ function App() {
 
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-8">
         
-        {/* LEFT COLUMN (Dashboard) - Hidden on mobile if view is 'tasks' */}
-        <div className={`lg:col-span-5 space-y-6 ${mobileView === 'tasks' ? 'hidden lg:block' : 'block'}`}>
+        {/* LEFT COLUMN (Dashboard) - Hidden on mobile if view is 'tasks' or 'stats' */}
+        <div className={`lg:col-span-5 space-y-6 ${mobileView === 'tasks' || mobileView === 'stats' ? 'hidden lg:block' : 'block'}`}>
             <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center justify-center relative overflow-hidden min-h-[200px]">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
                 <Nexus />
@@ -77,9 +103,16 @@ function App() {
             </div>
         </div>
 
-        {/* RIGHT COLUMN (Tasks) - Hidden on mobile if view is 'dashboard' */}
+        {/* RIGHT COLUMN (Tasks or Stats) - Hidden on mobile if view is 'dashboard' */}
         <div className={`lg:col-span-7 h-full ${mobileView === 'dashboard' ? 'hidden lg:block' : 'block'}`}>
+          {mobileView === 'stats' ? (
+            <div className="space-y-6">
+              <Statistics />
+              <Achievements />
+            </div>
+          ) : (
             <TaskList />
+          )}
         </div>
       </div>
 
@@ -87,7 +120,7 @@ function App() {
       <div className="fixed bottom-0 left-0 w-full bg-card border-t border-border p-2 flex justify-around items-center lg:hidden z-50 safe-area-bottom">
         <button 
             onClick={() => setMobileView('dashboard')}
-            className={`flex flex-col items-center gap-1 p-2 rounded-lg w-full transition-colors ${mobileView === 'dashboard' ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-colors ${mobileView === 'dashboard' ? 'text-primary' : 'text-muted-foreground'}`}
         >
             <LayoutDashboard className="w-5 h-5" />
             <span className="text-[10px] font-bold tracking-wider">SYSTEM</span>
@@ -95,12 +128,21 @@ function App() {
         <div className="w-[1px] h-6 bg-border"></div>
         <button 
             onClick={() => setMobileView('tasks')}
-            className={`flex flex-col items-center gap-1 p-2 rounded-lg w-full transition-colors ${mobileView === 'tasks' ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-colors ${mobileView === 'tasks' ? 'text-primary' : 'text-muted-foreground'}`}
         >
             <ListTodo className="w-5 h-5" />
             <span className="text-[10px] font-bold tracking-wider">TASKS</span>
         </button>
+        <div className="w-[1px] h-6 bg-border"></div>
+        <button 
+            onClick={() => setMobileView('stats')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg flex-1 transition-colors ${mobileView === 'stats' ? 'text-primary' : 'text-muted-foreground'}`}
+        >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-wider">STATS</span>
+        </button>
       </div>
+
 
     </div>
   );

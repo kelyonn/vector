@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useVectorStore } from '../store/useVectorStore';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+
+import { useVectorStore } from '@/store/useVectorStore';
 
 export function Ledger() {
   const { wallet, updateWallet } = useVectorStore();

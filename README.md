@@ -4,6 +4,10 @@
 
 **Vector** is a high-performance, gamified life operating system designed to enforce discipline through RPG mechanics and data visualization. It replaces traditional to-do lists with a "Character Sheet" for your life, featuring attribute tracking, mandatory protocols, and punitive logic.
 
+**Version 2.0.0** - Now with Data Safety, Statistics, and Achievements
+
+---
+
 ## Core Systems
 
 ### 1. The 6-Point Attribute Matrix
@@ -27,6 +31,7 @@ The system runs a hard reset at midnight:
 * **Tasks Wiped:** Any unfinished manual task is deleted (Zero XP).
 * **Damage Taken:** Missed "Iron Rules" inflict **-10% System Integrity** damage.
 * **Energy Reset:** Energy restores to 100%.
+* **Snapshot Saved:** Daily progress is automatically saved to history.
 
 ### 4. Native Mobile Architecture
 Built with **Capacitor**, Vector runs as a native Android/iOS app with:
@@ -36,12 +41,39 @@ Built with **Capacitor**, Vector runs as a native Android/iOS app with:
 
 ---
 
+## New in v2.0.0
+
+### Statistics & Analytics Dashboard
+* **Historical Tracking:** Automatic daily snapshots (last 365 days)
+* **Progress Charts:** Visualize integrity, energy, and task completion over time
+* **Attribute Growth:** Track level gains across all attributes
+* **Key Metrics:** Total days, current/longest streaks, average performance
+* **Best Day Tracking:** See your highest performing day
+
+### Achievement System
+Unlock 11 achievements as you progress:
+* **First Steps** - Complete your first day
+* **Week Warrior** - 7-day streak
+* **Month Master** - 30-day streak
+* **Level Milestones** - Reach levels 10, 25, 50, 100
+* **Perfectionist** - Complete all tasks in a day
+* **Task Master** - Complete 1000 tasks total
+* **Evolution Milestones** - Reach Evolution Stages 5 and 10
+
+### Data Safety & Management
+* **Export/Import:** Backup and restore your data as JSON files
+* **Settings Page:** Centralized data management
+* **Data Versioning:** Future-proof data format for migrations
+* **Reset Option:** Start fresh with confirmation
+
+---
+
 ## Tech Stack
 
 * **Core:** React, TypeScript, Vite
 * **State:** Zustand (Persisted LocalStorage)
 * **UI:** Tailwind CSS, Framer Motion, Lucide Icons
-* **Data Viz:** Recharts (Radar Charts)
+* **Data Viz:** Recharts (Radar, Line, Area, Bar Charts)
 * **Mobile:** Capacitor (Android/iOS Native Bridge)
 
 ---
@@ -55,7 +87,6 @@ npm install
 
 # Run local server
 npm run dev
-
 ```
 
 ### 2. Building for Android
@@ -69,11 +100,10 @@ Vector uses Capacitor to build a native APK.
 npm run build
 
 # 2. Sync web assets to Native Android project
-npx cap sync
+npx cap sync android
 
 # 3. Open Android Studio to build APK
 npx cap open android
-
 ```
 
 *Inside Android Studio: Go to **Build > Build Bundle(s) / APK(s) > Build APK(s)**.*
@@ -82,11 +112,78 @@ npx cap open android
 
 ## Usage Guide
 
-1. **Dashboard (System):** View your Metric Radar, Attribute Levels, and Ledger.
+### Main Views
+
+1. **Dashboard (System):** View your Metric Radar, Attribute Levels, Focus Timer, and Nexus.
 2. **Tasks (Operations):** Manage daily tasks. Toggle **"IRON RULES"** to edit mandatory protocols.
-3. **Focus Mode:** Use the timer for deep work. Enabling **"STRICT"** mode penalizes you for switching apps.
+3. **Statistics:** View your progress charts, streaks, and analytics (New in v2.0.0).
 4. **Ledger:** Tap "ASSETS" in the header to track liquid wealth.
+5. **Settings:** Tap the gear icon to export/import data or reset your progress.
+
+### Key Features
+
+* **Focus Mode:** Use the timer for deep work. Enabling **"STRICT"** mode penalizes you for switching apps.
+* **Daily Snapshots:** Your progress is automatically saved each day at midnight reset.
+* **Export/Import:** Regularly backup your data using the Settings page.
+* **Achievements:** Track your milestones and unlock achievements as you progress.
+
+### Mobile Navigation
+
+* **SYSTEM:** Dashboard view with Nexus, Radar, and Attributes
+* **TASKS:** Task management and Iron Rules
+* **STATS:** Statistics and Achievements (New in v2.0.0)
 
 ---
 
-*System Status: ONLINE*
+## Data Management
+
+### Exporting Data
+1. Open Settings (gear icon in top bar)
+2. Click "Export Backup"
+3. A JSON file will download with all your data, including historical snapshots
+
+### Importing Data
+1. Open Settings
+2. Click "Import Backup"
+3. Select your previously exported JSON file
+4. All data will be restored, including snapshots and achievements
+
+### Data Format
+Exported data includes:
+* Current state (attributes, tasks, protocols, stats)
+* Historical snapshots (last 365 days)
+* Version information for future compatibility
+
+---
+
+## Project Structure
+
+```
+src/
+├── components/     # React components
+│   ├── Achievements.tsx
+│   ├── Settings.tsx
+│   ├── Statistics.tsx
+│   └── ...
+├── constants/      # App constants
+├── lib/           # Utility functions
+│   └── statistics.ts
+├── store/         # Zustand state management
+├── types/         # TypeScript type definitions
+└── ...
+```
+
+---
+
+## Roadmap
+
+See [IMPROVEMENTS_ROADMAP.md](./IMPROVEMENTS_ROADMAP.md) for future enhancements including:
+* Goals/Targets system
+* Task templates
+* Local notifications
+* Multi-device sync options
+
+---
+
+*System Status: ONLINE*  
+*Version: 2.0.0*

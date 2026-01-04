@@ -30,5 +30,28 @@ dist-ssr
 android/app/src/main/assets/public
 ios/App/App/public
 
+# Android build artifacts (already in android/.gitignore but keeping here for clarity)
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/.idea/
+android/local.properties
+android/*.iml
+
+# iOS build artifacts (already in ios/.gitignore but keeping here for clarity)
+ios/Pods/
+ios/App/build/
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
 # OS generated files
 Thumbs.db
+.DS_Store
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

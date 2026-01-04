@@ -1,10 +1,10 @@
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, PolarRadiusAxis } from 'recharts';
-import { useVectorStore } from '../store/useVectorStore';
+
+import { useVectorStore } from '@/store/useVectorStore';
 
 export function MetricRadar() {
   const { attributes } = useVectorStore();
 
-  // FIX: Mapping the 6 new attributes correctly
   const data = [
     { subject: 'STRENGTH', A: attributes.strength?.level || 0, fullMark: 100 },
     { subject: 'INTELLECT', A: attributes.intellect?.level || 0, fullMark: 100 },

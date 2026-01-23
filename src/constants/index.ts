@@ -11,9 +11,9 @@ export const INITIAL_ATTRS: Record<AttributeType, Attribute> = {
 
 // Default Iron Rules (2.5 XP each)
 export const DEFAULT_IRON_RULES: Task[] = [
-  { id: 'iron-1', text: 'Sleep 6hr+', type: 'strength', xpValue: 2.5, completed: false, isSystem: true },
-  { id: 'iron-2', text: 'Drink 3L Water', type: 'strength', xpValue: 2.5, completed: false, isSystem: true },
-  { id: 'iron-3', text: 'Clean Room', type: 'mind', xpValue: 2.5, completed: false, isSystem: true },
-  { id: 'iron-4', text: 'Shower / Groom', type: 'strength', xpValue: 2.5, completed: false, isSystem: true },
+  { id: 'iron-1', text: 'Sleep 6hr+', type: 'strength', xpValue: 2.5, completed: false, isSystem: true, createdAt: new Date().toISOString(), priority: 'medium', recurrence: 'none' },
+  { id: 'iron-2', text: 'Drink 3L Water', type: 'strength', xpValue: 2.5, completed: false, isSystem: true, createdAt: new Date().toISOString(), priority: 'medium', recurrence: 'none' },
+  { id: 'iron-3', text: 'Clean Room', type: 'mind', xpValue: 2.5, completed: false, isSystem: true, createdAt: new Date().toISOString(), priority: 'medium', recurrence: 'none' },
+  { id: 'iron-4', text: 'Shower / Groom', type: 'strength', xpValue: 2.5, completed: false, isSystem: true, createdAt: new Date().toISOString(), priority: 'medium', recurrence: 'none' },
 ];
 

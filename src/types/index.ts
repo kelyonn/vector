@@ -1,5 +1,7 @@
 export type AttributeType = 'strength' | 'intellect' | 'create' | 'mind' | 'work' | 'others';
 
+export type RecurrencePattern = 'none' | 'daily' | 'weekly' | 'monthly' | 'weekdays' | 'weekends';
+
 export interface Task {
   id: string;
   text: string;
@@ -7,6 +9,18 @@ export interface Task {
   completed: boolean;
   xpValue: number;
   isSystem?: boolean; // "Iron Rule" flag
+  
+  // Scheduling
+  scheduledFor?: string; // ISO datetime string
+  dueDate?: string; // ISO date string
+  recurrence?: RecurrencePattern;
+  reminderMinutes?: number; // Minutes before scheduled time to remind (e.g., 15, 30, 60)
+  notificationId?: number; // ID of scheduled notification
+  
+  // Metadata
+  createdAt: string;
+  completedAt?: string;
+  priority?: 'low' | 'medium' | 'high';
 }
 
 export interface Attribute {
@@ -38,9 +52,10 @@ export interface VectorState {
   snapshots: DailySnapshot[]; // Historical daily snapshots
 
   // Actions
-  addTask: (text: string, type: AttributeType, xpValue: number, isSystem?: boolean) => void;
+  addTask: (text: string, type: AttributeType, xpValue: number, isSystem?: boolean, scheduledFor?: string, dueDate?: string, recurrence?: RecurrencePattern, reminderMinutes?: number, priority?: 'low' | 'medium' | 'high') => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
+  updateTask: (id: string, updates: Partial<Task>) => void;
   
   // Iron Rules Management
   addProtocol: (text: string, type: AttributeType, xpValue: number) => void;
@@ -55,12 +70,21 @@ export interface VectorState {
   exportData: () => string;
   importData: (jsonString: string) => boolean;
   resetData: () => void;
+  
+  goals: Goal[];
+  templates: TaskTemplate[];
+  addGoal: (goal: Omit<Goal, 'id' | 'completed' | 'completedAt' | 'progress'>) => void;
+  removeGoal: (id: string) => void;
+  updateGoalProgress: () => void;
+  addTemplate: (name: string, description: string, tasks: Omit<Task, 'id' | 'completed'>[]) => void;
+  removeTemplate: (id: string) => void;
+  applyTemplate: (templateId: string) => void;
 }
 
 export interface ExportData {
   version: string;
   exportedAt: string;
-  data: Omit<VectorState, 'addTask' | 'toggleTask' | 'deleteTask' | 'addProtocol' | 'removeProtocol' | 'checkDailyReset' | 'setIntegrity' | 'processFocusSession' | 'updateWallet' | 'exportData' | 'importData' | 'resetData'>;
+  data: Omit<VectorState, 'addTask' | 'toggleTask' | 'deleteTask' | 'updateTask' | 'addProtocol' | 'removeProtocol' | 'checkDailyReset' | 'setIntegrity' | 'processFocusSession' | 'updateWallet' | 'exportData' | 'importData' | 'resetData' | 'addGoal' | 'removeGoal' | 'updateGoalProgress' | 'addTemplate' | 'removeTemplate' | 'applyTemplate'>;
   metadata?: {
     appVersion?: string;
   };
@@ -99,6 +123,32 @@ export interface Statistics {
     date: string;
     tasksCompleted: number;
   };
-  attributeGrowth: Record<AttributeType, number>; // Total levels gained
+  attributeGrowth: Record<AttributeType, number>;
+}
+
+export type GoalType = 'daily' | 'weekly' | 'monthly';
+export type GoalTargetType = 'attribute_level' | 'tasks_completed' | 'integrity' | 'evolution_stage';
+
+export interface Goal {
+  id: string;
+  title: string;
+  description?: string;
+  type: GoalType;
+  targetType: GoalTargetType;
+  targetValue: number;
+  attributeType?: AttributeType;
+  startDate: string;
+  endDate?: string;
+  completed: boolean;
+  completedAt?: string;
+  progress: number;
+}
+
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  tasks: Omit<Task, 'id' | 'completed'>[];
+  createdAt: string;
 }
 

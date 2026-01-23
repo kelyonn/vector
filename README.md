@@ -91,10 +91,23 @@ npm run dev
 
 ### 2. Building for Android
 
-Vector uses Capacitor to build a native APK.
+Vector uses Capacitor to build a native Android app.
 
-**Prerequisites:** Android Studio installed.
+**Prerequisites:** 
+- Android Studio installed ([Download](https://developer.android.com/studio))
+- Android SDK (API 33+)
+- JDK 17+
 
+**Quick Start:**
+```bash
+# Build and sync in one command
+npm run sync:android
+
+# Open Android Studio
+npm run open:android
+```
+
+**Detailed Steps:**
 ```bash
 # 1. Build the React web assets
 npm run build
@@ -102,11 +115,17 @@ npm run build
 # 2. Sync web assets to Native Android project
 npx cap sync android
 
-# 3. Open Android Studio to build APK
+# 3. Open Android Studio
 npx cap open android
 ```
 
-*Inside Android Studio: Go to **Build > Build Bundle(s) / APK(s) > Build APK(s)**.*
+**In Android Studio:**
+1. Wait for Gradle sync to complete
+2. Select device/emulator from dropdown
+3. Click **Run** button (▶️) or press `Shift + F10`
+4. App will install and launch
+
+**For detailed Android Studio setup, see [ANDROID_STUDIO_GUIDE.md](./ANDROID_STUDIO_GUIDE.md)**
 
 ---
 
@@ -175,15 +194,36 @@ src/
 
 ---
 
+## Android Studio Guide
+
+For complete setup instructions, troubleshooting, and build guide, see:
+**[ANDROID_STUDIO_GUIDE.md](./ANDROID_STUDIO_GUIDE.md)**
+
+Quick commands:
+- `npm run sync:android` - Build and sync to Android
+- `npm run open:android` - Open in Android Studio
+
 ## Roadmap
 
-See [IMPROVEMENTS_ROADMAP.md](./IMPROVEMENTS_ROADMAP.md) for future enhancements including:
-* Goals/Targets system
-* Task templates
-* Local notifications
-* Multi-device sync options
+See [IMPROVEMENTS_ROADMAP.md](./IMPROVEMENTS_ROADMAP.md) for future enhancements.
 
 ---
 
-*System Status: ONLINE*  
+## Version History
+
+**v2.0.0** - Current
+- Statistics & Analytics Dashboard
+- Achievement System
+- Data Safety & Management (Export/Import)
+- Goals/Targets System
+- Task Templates
+- Local Notifications
+- Haptic Feedback
+- GitHub Gist Sync
+- Scheduled Tasks with Notifications
+- Improved UI/UX with better spacing
+
+---
+
+*System Status: ONLINE*
 *Version: 2.0.0*

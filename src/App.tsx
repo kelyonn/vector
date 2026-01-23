@@ -5,25 +5,47 @@ import { Battery, ShieldAlert, ChevronDown, ChevronUp, LayoutDashboard, ListTodo
 import { Achievements } from '@/components/Achievements';
 import { AttributeCards } from '@/components/AttributeCards';
 import { FocusTimer } from '@/components/FocusTimer';
+import { Goals } from '@/components/Goals';
 import { Ledger } from '@/components/Ledger';
 import { MetricRadar } from '@/components/MetricRadar';
 import { Nexus } from '@/components/Nexus';
 import { Settings as SettingsComponent } from '@/components/Settings';
 import { Statistics } from '@/components/Statistics';
 import { TaskList } from '@/components/TaskList';
+import { Templates } from '@/components/Templates';
 import { useVectorStore } from '@/store/useVectorStore';
 
 function App() {
-  const { integrity, energy, checkDailyReset } = useVectorStore();
+  const { integrity, energy, checkDailyReset, updateGoalProgress, importData } = useVectorStore();
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileView, setMobileView] = useState<'dashboard' | 'tasks' | 'stats'>('tasks');
 
   useEffect(() => {
     checkDailyReset();
-    const interval = setInterval(checkDailyReset, 60000);
+    updateGoalProgress();
+    
+    (async () => {
+      const { pullFromGist, getSyncStatus } = await import('@/lib/gistSync');
+      const syncStatus = getSyncStatus();
+      if (syncStatus.enabled) {
+        try {
+          const data = await pullFromGist();
+          if (data) {
+            importData(data);
+          }
+        } catch {
+          // Silent fail on startup
+        }
+      }
+    })();
+    
+    const interval = setInterval(() => {
+      checkDailyReset();
+      updateGoalProgress();
+    }, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkDailyReset, updateGoalProgress, importData]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center overflow-x-hidden selection:bg-primary/20 pb-20 lg:pb-0">
@@ -50,10 +72,10 @@ function App() {
           >
             <Settings className="w-4 h-4" />
           </button>
-          <button onClick={() => setLedgerOpen(!ledgerOpen)} className="flex items-center gap-1 hover:text-primary transition-colors">
-              ASSETS {ledgerOpen ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
-          </button>
-        </div>
+        <button onClick={() => setLedgerOpen(!ledgerOpen)} className="flex items-center gap-1 hover:text-primary transition-colors">
+            ASSETS {ledgerOpen ? <ChevronUp className="w-3 h-3"/> : <ChevronDown className="w-3 h-3"/>}
+        </button>
+      </div>
       </div>
 
       {/* SETTINGS DRAWER */}
@@ -101,6 +123,8 @@ function App() {
             <div className="rounded-xl border border-border overflow-hidden bg-card shadow-lg">
                 <FocusTimer />
             </div>
+
+            <Goals />
         </div>
 
         {/* RIGHT COLUMN (Tasks or Stats) - Hidden on mobile if view is 'dashboard' */}
@@ -111,7 +135,10 @@ function App() {
               <Achievements />
             </div>
           ) : (
-            <TaskList />
+            <div className="space-y-6">
+              <TaskList />
+              <Templates />
+            </div>
           )}
         </div>
       </div>

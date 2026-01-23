@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 
+import { haptics } from '@/lib/haptics';
 import { useVectorStore } from '@/store/useVectorStore';
 
 export function Ledger() {
@@ -11,6 +12,7 @@ export function Ledger() {
     const val = parseFloat(amount);
     if (!isNaN(val) && val > 0) {
         updateWallet(isIncome ? val : -val);
+        haptics.medium();
         setAmount('');
     }
   };

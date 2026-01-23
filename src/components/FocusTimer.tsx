@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Play, Octagon, Lock, Unlock, Clock } from 'lucide-react';
 
+import { haptics } from '@/lib/haptics';
 import { useVectorStore } from '@/store/useVectorStore';
 
 export function FocusTimer() {
@@ -24,7 +25,8 @@ export function FocusTimer() {
       interval = setInterval(() => setSeconds(s => s - 1), 1000);
     } else if (seconds === 0 && isActive) {
       setIsActive(false);
-      processFocusSession(customTime, true, distractions); 
+      processFocusSession(customTime, true, distractions);
+      haptics.success();
       setDistractions(0);
       alert("SESSION COMPLETE.");
     }
@@ -36,6 +38,7 @@ export function FocusTimer() {
         setSeconds(customTime * 60);
         setIsActive(true);
         setDistractions(0);
+        haptics.medium();
     }
   };
 
@@ -52,7 +55,13 @@ export function FocusTimer() {
             <div className="flex items-center gap-3 mb-2">
                 <span className="text-[10px] font-mono text-muted-foreground">FOCUS LINK</span>
                 {!isActive && (
-                    <button onClick={() => setStrictMode(!strictMode)} className={`flex items-center gap-1 text-[10px] px-2 rounded border ${strictMode ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}>
+                    <button 
+                      onClick={() => {
+                        setStrictMode(!strictMode);
+                        haptics.selection();
+                      }} 
+                      className={`flex items-center gap-1 text-[10px] px-2 rounded border ${strictMode ? 'border-primary text-primary' : 'border-border text-muted-foreground'}`}
+                    >
                         {strictMode ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
                         STRICT
                     </button>
@@ -76,7 +85,10 @@ export function FocusTimer() {
         </div>
         
         <button 
-            onClick={isActive ? () => setIsActive(false) : toggleTimer}
+            onClick={isActive ? () => {
+              setIsActive(false);
+              haptics.warning();
+            } : toggleTimer}
             className={`p-3 rounded-full border transition-all ${isActive ? 'border-destructive text-destructive' : 'border-primary text-primary'}`}
         >
             {isActive ? <Octagon className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}

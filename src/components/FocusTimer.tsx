@@ -20,7 +20,7 @@ export function FocusTimer() {
   }, [isActive, strictMode]);
 
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (isActive && seconds > 0) {
       interval = setInterval(() => setSeconds(s => s - 1), 1000);
     } else if (seconds === 0 && isActive) {
@@ -30,8 +30,10 @@ export function FocusTimer() {
       setDistractions(0);
       alert("SESSION COMPLETE.");
     }
-    return () => clearInterval(interval);
-  }, [isActive, seconds]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, seconds, customTime, distractions, processFocusSession]);
 
   const toggleTimer = () => {
     if (!isActive) {

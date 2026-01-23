@@ -28,7 +28,8 @@ Mandatory tasks that regenerate **every day at 00:00**. You cannot delete them.
 
 ### 3. The Midnight Purge (00:00 Reset)
 The system runs a hard reset at midnight:
-* **Tasks Wiped:** Any unfinished manual task is deleted (Zero XP).
+* **Iron Rules Reset:** All Iron Rules are reset to incomplete (new IDs generated).
+* **Regular Tasks Preserved:** Completed and incomplete regular tasks persist across resets.
 * **Damage Taken:** Missed "Iron Rules" inflict **-10% System Integrity** damage.
 * **Energy Reset:** Energy restores to 100%.
 * **Snapshot Saved:** Daily progress is automatically saved to history.
@@ -60,11 +61,31 @@ Unlock 11 achievements as you progress:
 * **Task Master** - Complete 1000 tasks total
 * **Evolution Milestones** - Reach Evolution Stages 5 and 10
 
+### Task Management & Scheduling
+* **Scheduled Tasks:** Set tasks for specific dates and times
+* **Recurring Tasks:** Daily, weekly, monthly, weekdays, or weekends
+* **Task Reminders:** Configurable notifications before scheduled time
+* **Priority Levels:** Low, medium, high priority tasks
+* **Task Filters:** View all, immediate, scheduled, overdue, today, or completed tasks
+* **Persistent Tasks:** Completed tasks remain visible until manually deleted
+
+### Goals & Templates
+* **Goal System:** Set daily, weekly, or monthly goals for attributes, tasks, integrity, or evolution
+* **Task Templates:** Create reusable task sets for projects or routines
+* **Progress Tracking:** Visual progress bars and automatic goal updates
+
 ### Data Safety & Management
 * **Export/Import:** Backup and restore your data as JSON files
+* **GitHub Gist Sync:** Optional cloud sync using GitHub Gists (free)
 * **Settings Page:** Centralized data management
 * **Data Versioning:** Future-proof data format for migrations
 * **Reset Option:** Start fresh with confirmation
+
+### Mobile Enhancements
+* **Local Notifications:** Daily reminders for Iron Rules and goals
+* **Task Notifications:** Notifications for scheduled and overdue tasks
+* **Haptic Feedback:** Tactile feedback for key interactions
+* **Optimized UI:** Improved spacing and visual hierarchy
 
 ---
 
@@ -142,9 +163,13 @@ npx cap open android
 ### Key Features
 
 * **Focus Mode:** Use the timer for deep work. Enabling **"STRICT"** mode penalizes you for switching apps.
+* **Task Scheduling:** Schedule tasks with dates, times, recurrence, and reminders.
+* **Task Persistence:** Completed tasks stay visible until you manually delete them.
 * **Daily Snapshots:** Your progress is automatically saved each day at midnight reset.
 * **Export/Import:** Regularly backup your data using the Settings page.
+* **Cloud Sync:** Optional GitHub Gist sync for multi-device access.
 * **Achievements:** Track your milestones and unlock achievements as you progress.
+* **Goals & Templates:** Set goals and create reusable task templates.
 
 ### Mobile Navigation
 
@@ -211,17 +236,19 @@ See [IMPROVEMENTS_ROADMAP.md](./IMPROVEMENTS_ROADMAP.md) for future enhancements
 
 ## Version History
 
-**v2.0.0** - Current
-- Statistics & Analytics Dashboard
-- Achievement System
-- Data Safety & Management (Export/Import)
-- Goals/Targets System
-- Task Templates
-- Local Notifications
-- Haptic Feedback
-- GitHub Gist Sync
-- Scheduled Tasks with Notifications
-- Improved UI/UX with better spacing
+**v2.0.0** - Current Release
+- ✅ Statistics & Analytics Dashboard
+- ✅ Achievement System (11 unlockable achievements)
+- ✅ Data Safety & Management (Export/Import)
+- ✅ Goals/Targets System (daily, weekly, monthly)
+- ✅ Task Templates (reusable task sets)
+- ✅ Local Notifications (daily reminders, task notifications)
+- ✅ Haptic Feedback (tactile responses)
+- ✅ GitHub Gist Sync (optional cloud backup)
+- ✅ Scheduled Tasks (dates, times, recurrence, reminders)
+- ✅ Task Persistence (completed tasks remain visible)
+- ✅ Improved UI/UX (better spacing, visual hierarchy)
+- ✅ Task Filters (all, immediate, scheduled, overdue, today, completed)
 
 ---
 

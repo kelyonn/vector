@@ -20,7 +20,7 @@ export function Goals() {
 
   useEffect(() => {
     updateGoalProgress();
-  }, [attributes, integrity, evolutionStage]);
+  }, [attributes, integrity, evolutionStage, updateGoalProgress]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

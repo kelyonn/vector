@@ -3,7 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, CheckCircle2, Circle, Settings2, X, Calendar, Clock, AlertCircle } from 'lucide-react';
 
 import { haptics } from '@/lib/haptics';
-import { getTasksByStatus, isTaskOverdue, isTaskScheduledForToday, isTaskUpcoming } from '@/lib/taskScheduler';
+import {
+  getTasksByStatus,
+  isTaskOverdue,
+  isTaskScheduledForToday,
+  isTaskScheduledActive,
+} from '@/lib/taskScheduler';
+import { DEFAULT_IRON_RULES } from '@/constants';
 import { TaskScheduler } from '@/components/TaskScheduler';
 import { useVectorStore } from '@/store/useVectorStore';
 import type { AttributeType, RecurrencePattern } from '@/types';
@@ -21,27 +27,42 @@ export function TaskList() {
 
   const taskStatus = getTasksByStatus(tasks);
 
+  const overdueSignature = taskStatus.overdue.map((t) => t.id).sort().join(',');
+
   useEffect(() => {
     const overdueTasks = taskStatus.overdue;
-    if (overdueTasks.length > 0) {
-      import('@/lib/notifications').then(({ requestNotificationPermission }) => {
-        requestNotificationPermission().then((hasPermission) => {
-          if (hasPermission) {
-            import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
-              LocalNotifications.schedule({
-                notifications: overdueTasks.map((task, idx) => ({
-                  title: 'Overdue Task',
-                  body: `${task.text} is overdue`,
-                  id: 20000 + idx,
-                  schedule: { at: new Date(Date.now() + 1000) },
-                })),
-              });
-            });
-          }
+    if (overdueTasks.length === 0) return;
+
+    const STORAGE_KEY = 'vector-overdue-notified-ids';
+    let notified: Set<string>;
+    try {
+      notified = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as string[]);
+    } catch {
+      notified = new Set();
+    }
+
+    const toNotify = overdueTasks.filter((t) => !notified.has(t.id));
+    if (toNotify.length === 0) return;
+
+    import('@/lib/notifications').then(({ requestNotificationPermission }) => {
+      requestNotificationPermission().then((hasPermission) => {
+        if (!hasPermission) return;
+        import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+          LocalNotifications.schedule({
+            notifications: toNotify.map((task, idx) => ({
+              title: 'Overdue Task',
+              body: `${task.text} is overdue`,
+              id: 20000 + (parseInt(task.id.slice(0, 6), 16) % 5000) + idx,
+              schedule: { at: new Date(Date.now() + 1000) },
+            })),
+          });
+          toNotify.forEach((t) => notified.add(t.id));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([...notified]));
         });
       });
-    }
-  }, [taskStatus.overdue.length]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- overdueSignature encodes taskStatus.overdue ids
+  }, [overdueSignature]);
 
   const handleSchedule = (
     scheduledFor: string,
@@ -80,11 +101,21 @@ export function TaskList() {
     
     // Filter by view type
     switch (viewFilter) {
-      case 'immediate':
-        filtered = filtered.filter(t => !t.completed && !t.scheduledFor);
+      case 'immediate': {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        filtered = filtered.filter(
+          (t) =>
+            !t.completed &&
+            !t.scheduledFor &&
+            (!t.dueDate || new Date(t.dueDate) >= today)
+        );
         break;
+      }
       case 'scheduled':
-        filtered = filtered.filter(t => !t.completed && t.scheduledFor && isTaskUpcoming(t));
+        filtered = filtered.filter(
+          (t) => !t.completed && t.scheduledFor && isTaskScheduledActive(t)
+        );
         break;
       case 'overdue':
         filtered = filtered.filter(t => !t.completed && isTaskOverdue(t));
@@ -195,20 +226,25 @@ export function TaskList() {
             >
                 <h3 className="text-xs font-bold uppercase tracking-widest text-primary">Edit Daily System Rules (Resets 00:00)</h3>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {protocols.map(p => (
+                    {protocols.map(p => {
+                      const isDefault = DEFAULT_IRON_RULES.some((d) => d.text === p.text);
+                      return (
                         <div key={p.id} className="flex justify-between items-center text-xs p-3 bg-card border border-border rounded-lg">
                             <span>{p.text} <span className="text-xs text-muted-foreground">({p.type})</span></span>
-                            <button 
-                              onClick={() => {
-                                removeProtocol(p.id);
-                                haptics.light();
-                              }} 
-                              className="text-destructive hover:bg-destructive/10 p-1.5 rounded transition-colors"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
+                            {!isDefault && (
+                              <button 
+                                onClick={() => {
+                                  removeProtocol(p.id);
+                                  haptics.light();
+                                }} 
+                                className="text-destructive hover:bg-destructive/10 p-1.5 rounded transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
                         </div>
-                    ))}
+                      );
+                    })}
                 </div>
                 <form onSubmit={handleAddRule} className="flex gap-3">
                     <input 

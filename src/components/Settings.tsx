@@ -17,10 +17,14 @@ import {
   disableGistSync,
   type GistSyncStatus,
 } from '@/lib/gistSync';
+import { APP_ID, APP_VERSION } from '@/constants/app';
 import { useVectorStore } from '@/store/useVectorStore';
+import { useStorageErrorStore } from '@/store/useStorageErrorStore';
 
 export function Settings() {
   const { exportData, importData, resetData } = useVectorStore();
+  const storageError = useStorageErrorStore((s) => s.message);
+  const clearStorageError = useStorageErrorStore((s) => s.clear);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(getDefaultNotificationSettings());
@@ -74,7 +78,7 @@ export function Settings() {
           setImportStatus('error');
           setTimeout(() => setImportStatus('idle'), 3000);
         }
-      } catch (error) {
+      } catch {
         setImportStatus('error');
         setTimeout(() => setImportStatus('idle'), 3000);
       }
@@ -167,7 +171,26 @@ export function Settings() {
       <div>
         <h2 className="text-lg font-bold tracking-tight mb-1">Settings</h2>
         <p className="text-xs text-muted-foreground">Manage your app preferences</p>
+        <p className="text-[10px] text-muted-foreground mt-1 font-mono">
+          {APP_ID} · v{APP_VERSION}
+        </p>
       </div>
+
+      {storageError && (
+        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex gap-2 items-start">
+          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-xs text-destructive font-medium">{storageError}</p>
+            <button
+              type="button"
+              onClick={clearStorageError}
+              className="text-[10px] text-muted-foreground underline mt-1"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3 pt-4 border-t border-border">
         <div>

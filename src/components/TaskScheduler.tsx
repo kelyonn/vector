@@ -19,15 +19,18 @@ export function TaskScheduler({ onSchedule, onCancel }: TaskSchedulerProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    let scheduledFor: string | undefined;
-    if (scheduledDate && scheduledTime) {
-      const dateTime = new Date(`${scheduledDate}T${scheduledTime}`);
-      scheduledFor = dateTime.toISOString();
+
+    if (!scheduledDate || !scheduledTime) {
+      return;
     }
 
+    const [year, month, day] = scheduledDate.split('-').map(Number);
+    const [hour, minute] = scheduledTime.split(':').map(Number);
+    const dateTime = new Date(year, month - 1, day, hour, minute);
+    const scheduledFor = dateTime.toISOString();
+
     onSchedule(
-      scheduledFor || '',
+      scheduledFor,
       dueDate || '',
       recurrence,
       reminderMinutes,
@@ -201,7 +204,8 @@ export function TaskScheduler({ onSchedule, onCancel }: TaskSchedulerProps) {
           </button>
           <button
             type="submit"
-            className="flex-1 py-3 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 flex items-center justify-center gap-2 transition-colors"
+            disabled={!scheduledDate || !scheduledTime}
+            className="flex-1 py-3 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Calendar className="w-4 h-4" />
             Schedule & Enable Notifications

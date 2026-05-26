@@ -18,8 +18,17 @@ export function Templates() {
     if (!formData.name.trim() || selectedTasks.length === 0) return;
 
     const tasksToSave = tasks
-      .filter(t => selectedTasks.includes(t.id))
-      .map(({ id, completed, ...rest }) => rest);
+      .filter((t) => selectedTasks.includes(t.id))
+      .map(({ text, type, xpValue, isSystem, recurrence, priority, reminderMinutes }) => ({
+        text,
+        type,
+        xpValue,
+        isSystem,
+        recurrence,
+        priority,
+        reminderMinutes,
+        createdAt: new Date().toISOString(),
+      }));
 
     addTemplate(formData.name, formData.description, tasksToSave);
     haptics.success();

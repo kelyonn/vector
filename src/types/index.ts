@@ -2,6 +2,13 @@ export type AttributeType = 'strength' | 'intellect' | 'create' | 'mind' | 'work
 
 export type RecurrencePattern = 'none' | 'daily' | 'weekly' | 'monthly' | 'weekdays' | 'weekends';
 
+export interface CompletionLedger {
+  integrityDelta: number;
+  energyDelta: number;
+  attributeType: AttributeType;
+  attributeBefore: Attribute;
+}
+
 export interface Task {
   id: string;
   text: string;
@@ -15,12 +22,15 @@ export interface Task {
   dueDate?: string; // ISO date string
   recurrence?: RecurrencePattern;
   reminderMinutes?: number; // Minutes before scheduled time to remind (e.g., 15, 30, 60)
-  notificationId?: number; // ID of scheduled notification
+  notificationIds?: { reminder?: number; at: number };
+  /** @deprecated use notificationIds */
+  notificationId?: number;
   
   // Metadata
   createdAt: string;
   completedAt?: string;
   priority?: 'low' | 'medium' | 'high';
+  lastCompletionLedger?: CompletionLedger;
 }
 
 export interface Attribute {
@@ -38,6 +48,8 @@ export interface DailySnapshot {
   tasksCompleted: number;
   tasksTotal: number;
   evolutionStage: number;
+  /** True when the app was inactive; task counts are not recorded for this day */
+  synthetic?: boolean;
 }
 
 export interface VectorState {

@@ -8,6 +8,8 @@ export interface NotificationSettings {
   remindGoals: boolean;
 }
 
+const DAILY_NOTIFICATION_IDS = [1, 2, 3];
+
 const DEFAULT_SETTINGS: NotificationSettings = {
   enabled: true,
   morningTime: '08:00',
@@ -25,16 +27,28 @@ export async function requestNotificationPermission(): Promise<boolean> {
   }
 }
 
+async function cancelDailyNotificationIds() {
+  await LocalNotifications.cancel({
+    notifications: DAILY_NOTIFICATION_IDS.map((id) => ({ id })),
+  });
+}
+
 export async function scheduleDailyNotifications(settings: NotificationSettings) {
+  await cancelDailyNotificationIds();
+
   if (!settings.enabled) {
-    await LocalNotifications.cancel({ notifications: [] });
     return;
   }
 
   const hasPermission = await requestNotificationPermission();
   if (!hasPermission) return;
 
-  const notifications = [];
+  const notifications: {
+    title: string;
+    body: string;
+    id: number;
+    schedule: { every: 'day'; on: { hour: number; minute: number } };
+  }[] = [];
 
   if (settings.remindIronRules) {
     const [morningHour, morningMinute] = settings.morningTime.split(':').map(Number);
@@ -46,10 +60,7 @@ export async function scheduleDailyNotifications(settings: NotificationSettings)
       id: 1,
       schedule: {
         every: 'day' as const,
-        on: {
-          hour: morningHour,
-          minute: morningMinute,
-        },
+        on: { hour: morningHour, minute: morningMinute },
       },
     });
 
@@ -59,21 +70,31 @@ export async function scheduleDailyNotifications(settings: NotificationSettings)
       id: 2,
       schedule: {
         every: 'day' as const,
-        on: {
-          hour: eveningHour,
-          minute: eveningMinute,
-        },
+        on: { hour: eveningHour, minute: eveningMinute },
       },
     });
   }
 
-  await LocalNotifications.schedule({
-    notifications,
-  });
+  if (settings.remindGoals) {
+    const [eveningHour, eveningMinute] = settings.eveningTime.split(':').map(Number);
+    notifications.push({
+      title: 'Vector: Goals Check-in',
+      body: 'Review your goals and track progress',
+      id: 3,
+      schedule: {
+        every: 'day' as const,
+        on: { hour: eveningHour, minute: eveningMinute },
+      },
+    });
+  }
+
+  if (notifications.length > 0) {
+    await LocalNotifications.schedule({ notifications });
+  }
 }
 
 export async function cancelAllNotifications() {
-  await LocalNotifications.cancel({ notifications: [] });
+  await cancelDailyNotificationIds();
 }
 
 export function getDefaultNotificationSettings(): NotificationSettings {

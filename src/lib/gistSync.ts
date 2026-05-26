@@ -1,3 +1,6 @@
+import { getLastExportAt } from '@/lib/taskStoreHelpers';
+import type { ExportData } from '@/types';
+
 const GIST_API_URL = 'https://api.github.com/gists';
 const GIST_FILENAME = 'vector-app-data.json';
 
@@ -9,6 +12,11 @@ export interface GistSyncStatus {
   error: string | null;
 }
 
+interface GistApiResponse {
+  id: string;
+  files: Record<string, { content?: string }>;
+}
+
 const DEFAULT_STATUS: GistSyncStatus = {
   enabled: false,
   gistId: null,
@@ -16,6 +24,10 @@ const DEFAULT_STATUS: GistSyncStatus = {
   syncing: false,
   error: null,
 };
+
+let pushInFlight: Promise<void> | null = null;
+let pushDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingPushData: string | null = null;
 
 export function getGistToken(): string | null {
   return localStorage.getItem('vector-gist-token');
@@ -62,8 +74,8 @@ export function saveSyncStatus(status: Partial<GistSyncStatus>) {
 async function makeGistRequest(
   url: string,
   method: 'GET' | 'POST' | 'PATCH',
-  body?: any
-): Promise<any> {
+  body?: Record<string, unknown>
+): Promise<GistApiResponse> {
   const token = getGistToken();
   if (!token) {
     throw new Error('No GitHub token configured');
@@ -72,19 +84,21 @@ async function makeGistRequest(
   const response = await fetch(url, {
     method,
     headers: {
-      'Authorization': `token ${token}`,
-      'Accept': 'application/vnd.github.v3+json',
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+    const error = (await response.json().catch(() => ({ message: 'Unknown error' }))) as {
+      message?: string;
+    };
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
-  return response.json();
+  return response.json() as Promise<GistApiResponse>;
 }
 
 export async function createGist(data: string): Promise<string> {
@@ -92,9 +106,7 @@ export async function createGist(data: string): Promise<string> {
     description: 'Vector App Data Sync',
     public: false,
     files: {
-      [GIST_FILENAME]: {
-        content: data,
-      },
+      [GIST_FILENAME]: { content: data },
     },
   });
 
@@ -112,9 +124,7 @@ export async function createGist(data: string): Promise<string> {
 export async function updateGist(gistId: string, data: string): Promise<void> {
   await makeGistRequest(`${GIST_API_URL}/${gistId}`, 'PATCH', {
     files: {
-      [GIST_FILENAME]: {
-        content: data,
-      },
+      [GIST_FILENAME]: { content: data },
     },
   });
 
@@ -136,31 +146,62 @@ export async function pushToGist(data: string): Promise<void> {
     throw new Error('No GitHub token configured');
   }
 
+  if (pushInFlight) {
+    return pushInFlight;
+  }
+
   saveSyncStatus({ syncing: true, error: null });
 
-  try {
-    let gistId = getGistId();
+  pushInFlight = (async () => {
+    try {
+      let gistId = getGistId();
 
-    if (!gistId) {
-      gistId = await createGist(data);
-    } else {
-      await updateGist(gistId, data);
+      if (!gistId) {
+        gistId = await createGist(data);
+      } else {
+        await updateGist(gistId, data);
+      }
+
+      saveSyncStatus({
+        enabled: true,
+        gistId,
+        lastSync: new Date().toISOString(),
+        syncing: false,
+        error: null,
+      });
+    } catch (error) {
+      saveSyncStatus({
+        syncing: false,
+        error: error instanceof Error ? error.message : 'Sync failed',
+      });
+      throw error;
+    } finally {
+      pushInFlight = null;
     }
+  })();
 
-    saveSyncStatus({
-      enabled: true,
-      gistId,
-      lastSync: new Date().toISOString(),
-      syncing: false,
-      error: null,
-    });
-  } catch (error) {
-    saveSyncStatus({
-      syncing: false,
-      error: error instanceof Error ? error.message : 'Sync failed',
-    });
-    throw error;
-  }
+  return pushInFlight;
+}
+
+export function pushToGistDebounced(data: string, delayMs = 2000): Promise<void> {
+  pendingPushData = data;
+  return new Promise((resolve, reject) => {
+    if (pushDebounceTimer) clearTimeout(pushDebounceTimer);
+    pushDebounceTimer = setTimeout(async () => {
+      const payload = pendingPushData;
+      pendingPushData = null;
+      if (!payload) {
+        resolve();
+        return;
+      }
+      try {
+        await pushToGist(payload);
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+    }, delayMs);
+  });
 }
 
 export async function pullFromGist(): Promise<string | null> {
@@ -192,6 +233,23 @@ export async function pullFromGist(): Promise<string | null> {
       error: error instanceof Error ? error.message : 'Pull failed',
     });
     throw error;
+  }
+}
+
+/** Returns remote data only if it is newer than local last export */
+export async function pullFromGistIfNewer(): Promise<string | null> {
+  const data = await pullFromGist();
+  if (!data) return null;
+
+  try {
+    const remote = JSON.parse(data) as ExportData;
+    const localAt = getLastExportAt();
+    if (localAt && remote.exportedAt && remote.exportedAt <= localAt) {
+      return null;
+    }
+    return data;
+  } catch {
+    return data;
   }
 }
 

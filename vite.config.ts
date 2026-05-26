@@ -9,7 +9,21 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    // FIX: Force Recharts to use the same React instance as the app
-    dedupe: ['react', 'react-dom'], 
+    dedupe: ['react', 'react-dom'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ['recharts'],
+          motion: ['framer-motion'],
+          capacitor: [
+            '@capacitor/core',
+            '@capacitor/haptics',
+            '@capacitor/local-notifications',
+          ],
+        },
+      },
+    },
   },
 })

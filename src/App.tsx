@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Battery, ShieldAlert, ChevronDown, ChevronUp, LayoutDashboard, ListTodo, Settings, BarChart3 } from 'lucide-react';
 
-import { Achievements } from '@/components/Achievements';
 import { AttributeCards } from '@/components/AttributeCards';
-import { FocusTimer } from '@/components/FocusTimer';
-import { Goals } from '@/components/Goals';
 import { Ledger } from '@/components/Ledger';
-import { MetricRadar } from '@/components/MetricRadar';
 import { Nexus } from '@/components/Nexus';
 import { Settings as SettingsComponent } from '@/components/Settings';
-import { Statistics } from '@/components/Statistics';
 import { TaskList } from '@/components/TaskList';
 import { Templates } from '@/components/Templates';
+import { onStorageError } from '@/lib/persistStorage';
 import { useVectorStore } from '@/store/useVectorStore';
+import { useStorageErrorStore } from '@/store/useStorageErrorStore';
+
+const MetricRadar = lazy(() =>
+  import('@/components/MetricRadar').then((m) => ({ default: m.MetricRadar }))
+);
+const FocusTimer = lazy(() =>
+  import('@/components/FocusTimer').then((m) => ({ default: m.FocusTimer }))
+);
+const Goals = lazy(() => import('@/components/Goals').then((m) => ({ default: m.Goals })));
+
+const Statistics = lazy(() =>
+  import('@/components/Statistics').then((m) => ({ default: m.Statistics }))
+);
+const Achievements = lazy(() =>
+  import('@/components/Achievements').then((m) => ({ default: m.Achievements }))
+);
 
 function App() {
   const { integrity, energy, checkDailyReset, updateGoalProgress, importData } = useVectorStore();
@@ -22,15 +34,18 @@ function App() {
   const [mobileView, setMobileView] = useState<'dashboard' | 'tasks' | 'stats'>('tasks');
 
   useEffect(() => {
+    onStorageError((message) => {
+      useStorageErrorStore.getState().setMessage(message);
+    });
     checkDailyReset();
     updateGoalProgress();
     
     (async () => {
-      const { pullFromGist, getSyncStatus } = await import('@/lib/gistSync');
+      const { pullFromGistIfNewer, getSyncStatus } = await import('@/lib/gistSync');
       const syncStatus = getSyncStatus();
       if (syncStatus.enabled) {
         try {
-          const data = await pullFromGist();
+          const data = await pullFromGistIfNewer();
           if (data) {
             importData(data);
           }
@@ -115,24 +130,32 @@ function App() {
 
             <div className="bg-card border border-border rounded-xl p-4 shadow-sm relative">
                 <span className="absolute top-3 left-4 text-[10px] tracking-widest uppercase text-muted-foreground font-bold">Attribute Matrix</span>
-                <MetricRadar />
+                <Suspense fallback={<div className="h-32 animate-pulse bg-secondary/30 rounded" />}>
+                  <MetricRadar />
+                </Suspense>
             </div>
 
             <AttributeCards />
             
             <div className="rounded-xl border border-border overflow-hidden bg-card shadow-lg">
-                <FocusTimer />
+                <Suspense fallback={<div className="h-24 animate-pulse bg-secondary/30" />}>
+                  <FocusTimer />
+                </Suspense>
             </div>
 
-            <Goals />
+            <Suspense fallback={<div className="h-40 animate-pulse bg-secondary/30 rounded-xl" />}>
+              <Goals />
+            </Suspense>
         </div>
 
         {/* RIGHT COLUMN (Tasks or Stats) - Hidden on mobile if view is 'dashboard' */}
         <div className={`lg:col-span-7 h-full ${mobileView === 'dashboard' ? 'hidden lg:block' : 'block'}`}>
           {mobileView === 'stats' ? (
             <div className="space-y-6">
-              <Statistics />
-              <Achievements />
+              <Suspense fallback={<div className="text-sm text-muted-foreground p-4">Loading stats…</div>}>
+                <Statistics />
+                <Achievements />
+              </Suspense>
             </div>
           ) : (
             <div className="space-y-6">

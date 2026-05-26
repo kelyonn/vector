@@ -1,5 +1,59 @@
 import type { Achievement, AchievementType, AttributeType, DailySnapshot, Statistics } from '@/types';
 
+function isStrongDay(snapshot: DailySnapshot): boolean {
+  if (snapshot.synthetic) return false;
+  const completionRate =
+    snapshot.tasksTotal > 0 ? snapshot.tasksCompleted / snapshot.tasksTotal : 0;
+  return completionRate >= 0.8;
+}
+
+function toDateString(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+function dayBefore(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  return toDateString(d);
+}
+
+function computeStreaks(sortedSnapshots: DailySnapshot[]): {
+  currentStreak: number;
+  longestStreak: number;
+} {
+  const byDate = new Map(sortedSnapshots.map((s) => [s.date, s]));
+  let longestStreak = 0;
+  let tempStreak = 0;
+
+  for (let i = 0; i < sortedSnapshots.length; i++) {
+    const snapshot = sortedSnapshots[i];
+    const prev = sortedSnapshots[i - 1];
+    const consecutive =
+      i === 0 || dayBefore(snapshot.date) === prev.date;
+
+    if (isStrongDay(snapshot) && consecutive) {
+      tempStreak++;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else if (isStrongDay(snapshot) && !consecutive) {
+      tempStreak = 1;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else {
+      tempStreak = 0;
+    }
+  }
+
+  let currentStreak = 0;
+  let cursor = toDateString(new Date());
+  while (byDate.has(cursor)) {
+    const snap = byDate.get(cursor)!;
+    if (!isStrongDay(snap)) break;
+    currentStreak++;
+    cursor = dayBefore(cursor);
+  }
+
+  return { currentStreak, longestStreak };
+}
+
 export function calculateStatistics(snapshots: DailySnapshot[]): Statistics {
   if (snapshots.length === 0) {
     return {
@@ -21,56 +75,63 @@ export function calculateStatistics(snapshots: DailySnapshot[]): Statistics {
   }
 
   const sortedSnapshots = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const streakSnapshots = sortedSnapshots.filter((s) => !s.synthetic);
   const firstSnapshot = sortedSnapshots[0];
   const latestSnapshot = sortedSnapshots[sortedSnapshots.length - 1];
-
-  let currentStreak = 0;
-  let longestStreak = 0;
-  let tempStreak = 0;
-
-  for (let i = sortedSnapshots.length - 1; i >= 0; i--) {
-    const snapshot = sortedSnapshots[i];
-    const completionRate = snapshot.tasksTotal > 0 ? snapshot.tasksCompleted / snapshot.tasksTotal : 0;
-    
-    if (completionRate >= 0.8) {
-      if (i === sortedSnapshots.length - 1) {
-        currentStreak++;
-      }
-      tempStreak++;
-      longestStreak = Math.max(longestStreak, tempStreak);
-    } else {
-      tempStreak = 0;
-    }
-  }
+  const { currentStreak, longestStreak } = computeStreaks(
+    streakSnapshots.length > 0 ? streakSnapshots : sortedSnapshots
+  );
 
   const totalIntegrity = sortedSnapshots.reduce((sum, s) => sum + s.integrity, 0);
   const totalEnergy = sortedSnapshots.reduce((sum, s) => sum + s.energy, 0);
-  const totalTasksCompleted = sortedSnapshots.reduce((sum, s) => sum + s.tasksCompleted, 0);
+  const totalTasksCompleted = streakSnapshots.reduce((sum, s) => sum + s.tasksCompleted, 0);
 
-  const bestDay = sortedSnapshots.reduce((best, current) => {
+  const bestDay = streakSnapshots.reduce((best, current) => {
     return current.tasksCompleted > (best?.tasksCompleted || 0) ? current : best;
-  }, sortedSnapshots[0]);
+  }, streakSnapshots[0] ?? sortedSnapshots[0]);
 
   const attributeGrowth: Record<AttributeType, number> = {
-    strength: Math.max(0, (latestSnapshot.attributes.strength?.level || 0) - (firstSnapshot.attributes.strength?.level || 0)),
-    intellect: Math.max(0, (latestSnapshot.attributes.intellect?.level || 0) - (firstSnapshot.attributes.intellect?.level || 0)),
-    create: Math.max(0, (latestSnapshot.attributes.create?.level || 0) - (firstSnapshot.attributes.create?.level || 0)),
-    mind: Math.max(0, (latestSnapshot.attributes.mind?.level || 0) - (firstSnapshot.attributes.mind?.level || 0)),
-    work: Math.max(0, (latestSnapshot.attributes.work?.level || 0) - (firstSnapshot.attributes.work?.level || 0)),
-    others: Math.max(0, (latestSnapshot.attributes.others?.level || 0) - (firstSnapshot.attributes.others?.level || 0)),
+    strength: Math.max(
+      0,
+      (latestSnapshot.attributes.strength?.level || 0) -
+        (firstSnapshot.attributes.strength?.level || 0)
+    ),
+    intellect: Math.max(
+      0,
+      (latestSnapshot.attributes.intellect?.level || 0) -
+        (firstSnapshot.attributes.intellect?.level || 0)
+    ),
+    create: Math.max(
+      0,
+      (latestSnapshot.attributes.create?.level || 0) -
+        (firstSnapshot.attributes.create?.level || 0)
+    ),
+    mind: Math.max(
+      0,
+      (latestSnapshot.attributes.mind?.level || 0) -
+        (firstSnapshot.attributes.mind?.level || 0)
+    ),
+    work: Math.max(
+      0,
+      (latestSnapshot.attributes.work?.level || 0) - (firstSnapshot.attributes.work?.level || 0)
+    ),
+    others: Math.max(
+      0,
+      (latestSnapshot.attributes.others?.level || 0) -
+        (firstSnapshot.attributes.others?.level || 0)
+    ),
   };
 
   return {
-    totalDays: sortedSnapshots.length,
+    totalDays: streakSnapshots.length > 0 ? streakSnapshots.length : sortedSnapshots.length,
     currentStreak,
     longestStreak,
     averageIntegrity: totalIntegrity / sortedSnapshots.length,
     averageEnergy: totalEnergy / sortedSnapshots.length,
     totalTasksCompleted,
-    bestDay: bestDay ? {
-      date: bestDay.date,
-      tasksCompleted: bestDay.tasksCompleted,
-    } : undefined,
+    bestDay: bestDay
+      ? { date: bestDay.date, tasksCompleted: bestDay.tasksCompleted }
+      : undefined,
     attributeGrowth,
   };
 }
@@ -81,14 +142,14 @@ export function calculateAchievements(
   currentAttributes: Record<AttributeType, { level: number }>
 ): Achievement[] {
   const stats = calculateStatistics(snapshots);
+  const sortedByDate = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
   const achievements: Achievement[] = [];
 
-  const achievementDefinitions: Record<AchievementType, Omit<Achievement, 'unlocked' | 'unlockedAt'>> = {
-    first_day: {
-      id: 'first_day',
-      name: 'First Steps',
-      description: 'Complete your first day',
-    },
+  const achievementDefinitions: Record<
+    AchievementType,
+    Omit<Achievement, 'unlocked' | 'unlockedAt'>
+  > = {
+    first_day: { id: 'first_day', name: 'First Steps', description: 'Complete your first day' },
     week_streak: {
       id: 'week_streak',
       name: 'Week Warrior',
@@ -99,11 +160,7 @@ export function calculateAchievements(
       name: 'Month Master',
       description: 'Maintain a 30-day streak',
     },
-    level_10: {
-      id: 'level_10',
-      name: 'Decade',
-      description: 'Reach level 10 in any attribute',
-    },
+    level_10: { id: 'level_10', name: 'Decade', description: 'Reach level 10 in any attribute' },
     level_25: {
       id: 'level_25',
       name: 'Quarter Century',
@@ -129,11 +186,7 @@ export function calculateAchievements(
       name: 'Task Master',
       description: 'Complete 1000 tasks total',
     },
-    evolution_5: {
-      id: 'evolution_5',
-      name: 'Evolved',
-      description: 'Reach Evolution Stage 5',
-    },
+    evolution_5: { id: 'evolution_5', name: 'Evolved', description: 'Reach Evolution Stage 5' },
     evolution_10: {
       id: 'evolution_10',
       name: 'Transcendent',
@@ -148,8 +201,8 @@ export function calculateAchievements(
     switch (def.id) {
       case 'first_day':
         unlocked = stats.totalDays >= 1;
-        if (unlocked && snapshots.length > 0) {
-          unlockedAt = snapshots[0].date;
+        if (unlocked && sortedByDate.length > 0) {
+          unlockedAt = sortedByDate[0].date;
         }
         break;
       case 'week_streak':
@@ -159,21 +212,31 @@ export function calculateAchievements(
         unlocked = stats.longestStreak >= 30;
         break;
       case 'level_10':
-        unlocked = Object.values(currentAttributes).some(attr => attr.level >= 10);
+        unlocked = Object.values(currentAttributes).some((attr) => attr.level >= 10);
         break;
       case 'level_25':
-        unlocked = Object.values(currentAttributes).some(attr => attr.level >= 25);
+        unlocked = Object.values(currentAttributes).some((attr) => attr.level >= 25);
         break;
       case 'level_50':
-        unlocked = Object.values(currentAttributes).some(attr => attr.level >= 50);
+        unlocked = Object.values(currentAttributes).some((attr) => attr.level >= 50);
         break;
       case 'level_100':
-        unlocked = Object.values(currentAttributes).some(attr => attr.level >= 100);
+        unlocked = Object.values(currentAttributes).some((attr) => attr.level >= 100);
         break;
       case 'perfectionist':
-        unlocked = snapshots.some(s => s.tasksTotal > 0 && s.tasksCompleted === s.tasksTotal);
+        unlocked = snapshots.some(
+          (s) =>
+            !s.synthetic &&
+            s.tasksTotal > 0 &&
+            s.tasksCompleted === s.tasksTotal
+        );
         if (unlocked) {
-          const perfectDay = snapshots.find(s => s.tasksTotal > 0 && s.tasksCompleted === s.tasksTotal);
+          const perfectDay = sortedByDate.find(
+            (s) =>
+              !s.synthetic &&
+              s.tasksTotal > 0 &&
+              s.tasksCompleted === s.tasksTotal
+          );
           unlockedAt = perfectDay?.date;
         }
         break;
@@ -188,11 +251,7 @@ export function calculateAchievements(
         break;
     }
 
-    achievements.push({
-      ...def,
-      unlocked,
-      unlockedAt,
-    });
+    achievements.push({ ...def, unlocked, unlockedAt });
   });
 
   return achievements.sort((a, b) => {
@@ -201,4 +260,3 @@ export function calculateAchievements(
     return 0;
   });
 }
-

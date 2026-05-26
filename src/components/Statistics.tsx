@@ -39,7 +39,10 @@ export function Statistics() {
     return (
       <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center justify-center min-h-[400px]">
         <Calendar className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
-        <p className="text-muted-foreground text-sm">No data yet. Start tracking to see your statistics!</p>
+        <p className="text-muted-foreground text-sm text-center max-w-sm">
+          No data yet. Start tracking to see your statistics! Days you were inactive are recorded
+          without task completion data and do not affect streaks.
+        </p>
       </div>
     );
   }

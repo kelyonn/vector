@@ -20,7 +20,7 @@ Every action feeds into a specific attribute, leveling up your avatar:
 * **OTHERS:** Logistics and errands.
 
 ### 2. The Iron Rules (Daily Protocols)
-Mandatory tasks that regenerate **every day at 00:00**. You cannot delete them.
+Mandatory tasks that regenerate **every day at 00:00**. Default Iron Rules cannot be removed; you may add custom rules or remove only user-added ones.
 * *Sleep 6hr+*
 * *Drink 3L Water*
 * *Clean Room*
@@ -76,13 +76,13 @@ Unlock 11 achievements as you progress:
 
 ### Data Safety & Management
 * **Export/Import:** Backup and restore your data as JSON files
-* **GitHub Gist Sync:** Optional cloud sync using GitHub Gists (free)
+* **GitHub Gist Sync:** Optional cloud sync via GitHub Gist (requires a Personal Access Token with `gist` scope; newer local exports win on conflict)
 * **Settings Page:** Centralized data management
 * **Data Versioning:** Future-proof data format for migrations
 * **Reset Option:** Start fresh with confirmation
 
 ### Mobile Enhancements
-* **Local Notifications:** Daily reminders for Iron Rules and goals
+* **Local Notifications:** Daily reminders for Iron Rules and goals (requires a native Android/iOS build; not available in browser dev mode)
 * **Task Notifications:** Notifications for scheduled and overdue tasks
 * **Haptic Feedback:** Tactile feedback for key interactions
 * **Optimized UI:** Improved spacing and visual hierarchy
@@ -92,7 +92,7 @@ Unlock 11 achievements as you progress:
 ## Tech Stack
 
 * **Core:** React, TypeScript, Vite
-* **State:** Zustand (Persisted LocalStorage)
+* **State:** Zustand (persisted to IndexedDB via `idb-keyval`; auto-migrates from legacy localStorage on first load)
 * **UI:** Tailwind CSS, Framer Motion, Lucide Icons
 * **Data Viz:** Recharts (Radar, Line, Area, Bar Charts)
 * **Mobile:** Capacitor (Android/iOS Native Bridge)
@@ -147,6 +147,8 @@ npx cap open android
 4. App will install and launch
 
 **For detailed Android Studio setup, see [ANDROID_STUDIO_GUIDE.md](./ANDROID_STUDIO_GUIDE.md)**
+
+**Upgrading from an older APK (`com.example.app`):** Uninstall the old app first, then run `npm run sync:android` and install the new build (`com.vector.app`). App data does not transfer automatically between package IDs.
 
 ---
 

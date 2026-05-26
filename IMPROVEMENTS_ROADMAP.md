@@ -8,13 +8,15 @@
 - ✅ Fast and responsive
 - ✅ Gamified engagement system
 
-**Limitations:**
-- ⚠️ Data stored only in localStorage (can be lost)
-- ⚠️ No backup/restore functionality
-- ⚠️ No multi-device sync
-- ⚠️ No historical data tracking
-- ⚠️ No analytics/insights
-- ⚠️ Limited long-term engagement features
+**Resolved (v2.0.0):**
+- ✅ Export/import backup
+- ✅ GitHub Gist sync (PAT required)
+- ✅ Daily snapshots, statistics, achievements
+- ✅ Goals, templates, scheduled tasks, notifications
+
+**Remaining limitations:**
+- ⚠️ Data stored in localStorage (~5–10MB); IndexedDB migration deferred
+- ⚠️ Multi-day catch-up snapshots use current state (no historical task replay)
 
 ---
 

@@ -16,6 +16,27 @@ Complete guide to build and run Vector app in Android Studio.
    - Node.js 18+ and npm installed
    - Verify: `node --version` and `npm --version`
 
+> **Local notifications:** Task reminders and daily Iron Rule / goal notifications only work on a **native** Android or iOS build. They do not fire in `npm run dev` (browser).
+
+## Migrating from `com.example.app`
+
+If you previously installed Vector under the old package ID (`com.example.app`), Android treats `com.vector.app` as a **different app**.
+
+1. Export your data from the old app (Settings → Export Backup) if you want to keep progress.
+2. Uninstall the old `com.example.app` APK from your device.
+3. From the project root:
+
+```bash
+npm run build
+npx cap sync android
+npm run open:android
+```
+
+4. Build and install the new APK from Android Studio.
+5. Import your backup JSON in Settings if needed.
+
+Web data in the browser is separate from the native app and is stored in IndexedDB (migrated automatically from localStorage when you update).
+
 ## Initial Setup (One-Time)
 
 ### 1. Install Dependencies

@@ -2,9 +2,103 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { INITIAL_ATTRS, DEFAULT_IRON_RULES } from '@/constants';
-import type { DailySnapshot, ExportData, Goal, Task, TaskTemplate, VectorState } from '@/types';
+import {
+  applyCompletionRewards,
+  reverseFromLedger,
+  reverseCompletionRewards,
+  createDaySnapshot,
+  migrateExportData,
+  migratePersistedState,
+  migrateTask,
+  parseResetDate,
+  addDays,
+  toDateString,
+  getSnapshotsInRange,
+  setLastExportAt,
+  taskFromTemplateEntry,
+  PERSIST_SCHEMA_VERSION,
+  type PersistedGameState,
+} from '@/lib/taskStoreHelpers';
+import { idbStorage } from '@/lib/persistStorage';
+import { useStorageErrorStore } from '@/store/useStorageErrorStore';
+import type { ExportData, Goal, Task, TaskTemplate, VectorState } from '@/types';
 
 const MAX_SNAPSHOTS = 365;
+const MAX_RESET_ITERATIONS = 365;
+
+type GetState = () => VectorState;
+
+function scheduleNotificationsForTask(get: GetState, task: Task) {
+  if (!task.scheduledFor) return;
+  import('@/lib/taskScheduler').then(({ scheduleTaskNotification }) => {
+    scheduleTaskNotification(task).then((notificationIds) => {
+      if (notificationIds) {
+        get().updateTask(task.id, { notificationIds });
+      }
+    });
+  });
+}
+
+function cancelNotificationsForTask(task: Task) {
+  import('@/lib/taskScheduler').then(({ cancelTaskNotifications }) => {
+    cancelTaskNotifications(task.notificationIds);
+    if (task.notificationId != null && !task.notificationIds) {
+      cancelTaskNotifications({ at: task.notificationId });
+    }
+  });
+}
+
+function handleRecurringCompletion(get: GetState, task: Task) {
+  if (!task.recurrence || task.recurrence === 'none' || !task.scheduledFor) return;
+
+  import('@/lib/taskScheduler').then(({ getNextScheduledDate }) => {
+    const nextDate = getNextScheduledDate(task.scheduledFor!, task.recurrence!);
+    if (!nextDate) return;
+
+    get().addTask(
+      task.text,
+      task.type,
+      task.xpValue,
+      task.isSystem,
+      nextDate,
+      task.dueDate,
+      task.recurrence,
+      task.reminderMinutes,
+      task.priority
+    );
+  });
+}
+
+function runOneDayReset(
+  state: VectorState,
+  snapshotDate: string,
+  synthetic: boolean
+): Partial<VectorState> {
+  const snapshot = createDaySnapshot(state, snapshotDate, synthetic);
+
+  const missedIron = state.tasks.filter((t) => t.isSystem && !t.completed).length;
+  const damage = missedIron * 10;
+
+  const freshIronRules: Task[] = state.protocols.map((p) => ({
+    ...p,
+    id: crypto.randomUUID(),
+    completed: false,
+    completedAt: undefined,
+    lastCompletionLedger: undefined,
+    createdAt: new Date().toISOString(),
+    notificationIds: undefined,
+    notificationId: undefined,
+  }));
+
+  const regularTasks = state.tasks.filter((t) => !t.isSystem);
+
+  return {
+    integrity: Math.max(0, state.integrity - damage),
+    protocols: freshIronRules,
+    tasks: [...freshIronRules, ...regularTasks],
+    snapshots: [snapshot, ...state.snapshots].slice(0, MAX_SNAPSHOTS),
+  };
+}
 
 export const useVectorStore = create<VectorState>()(
   persist(
@@ -13,7 +107,7 @@ export const useVectorStore = create<VectorState>()(
       integrity: 100,
       energy: 100,
       wallet: 0,
-      tasks: [...DEFAULT_IRON_RULES], 
+      tasks: [...DEFAULT_IRON_RULES],
       protocols: [...DEFAULT_IRON_RULES],
       lastResetDate: new Date().toDateString(),
       evolutionStage: 1,
@@ -37,45 +131,47 @@ export const useVectorStore = create<VectorState>()(
           createdAt: new Date().toISOString(),
         };
 
-        if (scheduledFor) {
-          import('@/lib/taskScheduler').then(({ scheduleTaskNotification }) => {
-            scheduleTaskNotification(newTask).then((notificationId) => {
-              if (notificationId) {
-                get().updateTask(newTask.id, { notificationId });
-              }
-            });
-          });
-        }
-
-        return set((state) => ({
+        set((state) => ({
           tasks: [...state.tasks, newTask],
         }));
+
+        if (scheduledFor) {
+          scheduleNotificationsForTask(get, newTask);
+        }
       },
 
       addProtocol: (text, type, xpValue) =>
         set((state) => {
-            const newProto: Task = { 
-              id: crypto.randomUUID(), 
-              text, 
-              type, 
-              xpValue, 
-              completed: false, 
-              isSystem: true,
-              createdAt: new Date().toISOString(),
-              priority: 'medium',
-              recurrence: 'none',
-            };
-            return {
-                protocols: [...state.protocols, newProto],
-                tasks: [...state.tasks, newProto]
-            };
+          const newProto: Task = {
+            id: crypto.randomUUID(),
+            text,
+            type,
+            xpValue,
+            completed: false,
+            isSystem: true,
+            createdAt: new Date().toISOString(),
+            priority: 'medium',
+            recurrence: 'none',
+          };
+          return {
+            protocols: [...state.protocols, newProto],
+            tasks: [...state.tasks, newProto],
+          };
         }),
 
       removeProtocol: (id) =>
-        set((state) => ({
-            protocols: state.protocols.filter(p => p.id !== id),
-            tasks: state.tasks.filter(t => t.id !== id)
-        })),
+        set((state) => {
+          const protocol = state.protocols.find((p) => p.id === id);
+          if (!protocol) return state;
+
+          const isDefault = DEFAULT_IRON_RULES.some((d) => d.text === protocol.text);
+          if (isDefault) return state;
+
+          return {
+            protocols: state.protocols.filter((p) => p.id !== id),
+            tasks: state.tasks.filter((t) => t.id !== id),
+          };
+        }),
 
       toggleTask: (id) =>
         set((state) => {
@@ -84,173 +180,165 @@ export const useVectorStore = create<VectorState>()(
 
           const task = state.tasks[idx];
           const isCompleting = !task.completed;
-          let newState = { ...state };
+          let slice: Pick<VectorState, 'attributes' | 'integrity' | 'energy' | 'evolutionStage'> = {
+            attributes: state.attributes,
+            integrity: state.integrity,
+            energy: state.energy,
+            evolutionStage: state.evolutionStage,
+          };
+
+          let ledger = task.lastCompletionLedger;
 
           if (isCompleting) {
-            const attr = { ...newState.attributes[task.type] };
-            attr.currentXP += task.xpValue;
-            
-            while (attr.currentXP >= attr.xpToNextLevel) {
-              attr.currentXP -= attr.xpToNextLevel;
-              attr.level++;
-              attr.xpToNextLevel = Math.floor(attr.xpToNextLevel * 1.5);
-              newState.integrity = Math.min(100, newState.integrity + 5);
-              newState.energy = Math.min(100, newState.energy + 5);
-            }
-            newState.attributes[task.type] = attr;
-            newState.energy = Math.max(0, newState.energy - 1);
+            const result = applyCompletionRewards(
+              { ...state, ...slice, tasks: state.tasks, protocols: state.protocols },
+              task
+            );
+            slice = result.state;
+            ledger = result.ledger;
+          } else if (ledger) {
+            slice = reverseFromLedger(
+              { ...state, ...slice, tasks: state.tasks, protocols: state.protocols },
+              ledger
+            );
+          } else {
+            slice = reverseCompletionRewards(
+              { ...state, ...slice, tasks: state.tasks, protocols: state.protocols },
+              task
+            );
           }
 
-          newState.tasks = [...state.tasks];
-          newState.tasks[idx] = { ...task, completed: isCompleting };
-
-          const totalLevels = Object.values(newState.attributes).reduce((acc, curr) => acc + curr.level, 0);
-          newState.evolutionStage = Math.max(1, Math.floor(totalLevels / 5));
-
-          setTimeout(() => {
-            get().updateGoalProgress();
-          }, 0);
-
-          return newState;
-        }),
-
-      updateTask: (id, updates) =>
-        set((state) => {
-          const idx = state.tasks.findIndex((t) => t.id === id);
-          if (idx === -1) return state;
-
-          const task = state.tasks[idx];
-          const updatedTask = { ...task, ...updates };
-
-          if (updates.scheduledFor && !task.scheduledFor) {
-            import('@/lib/taskScheduler').then(({ scheduleTaskNotification }) => {
-              scheduleTaskNotification(updatedTask).then((notificationId) => {
-                if (notificationId) {
-                  get().updateTask(id, { notificationId });
-                }
-              });
-            });
-          }
-
-          if (updates.completed && task.notificationId) {
-            import('@/lib/taskScheduler').then(({ cancelTaskNotification }) => {
-              cancelTaskNotification(task.notificationId!);
-            });
-          }
-
-          if (updates.completed && task.recurrence && task.recurrence !== 'none' && task.scheduledFor) {
-            import('@/lib/taskScheduler').then(({ getNextScheduledDate }) => {
-              const nextDate = getNextScheduledDate(task.scheduledFor!, task.recurrence!);
-              if (nextDate) {
-                const newTask: Task = {
-                  ...updatedTask,
-                  id: crypto.randomUUID(),
-                  completed: false,
-                  scheduledFor: nextDate,
-                  createdAt: new Date().toISOString(),
-                  notificationId: undefined,
-                };
-                get().addTask(
-                  newTask.text,
-                  newTask.type,
-                  newTask.xpValue,
-                  newTask.isSystem,
-                  newTask.scheduledFor,
-                  newTask.dueDate,
-                  newTask.recurrence,
-                  newTask.reminderMinutes,
-                  newTask.priority
-                );
-              }
-            });
-          }
+          const updatedTask: Task = {
+            ...task,
+            completed: isCompleting,
+            completedAt: isCompleting ? new Date().toISOString() : undefined,
+            lastCompletionLedger: isCompleting ? ledger : undefined,
+          };
 
           const newTasks = [...state.tasks];
           newTasks[idx] = updatedTask;
-          return { tasks: newTasks };
+
+          if (isCompleting) {
+            cancelNotificationsForTask(task);
+            setTimeout(() => handleRecurringCompletion(get, task), 0);
+          }
+
+          setTimeout(() => get().updateGoalProgress(), 0);
+
+          return {
+            ...slice,
+            tasks: newTasks,
+          };
         }),
 
-      deleteTask: (id) =>
-        set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) })),
+      updateTask: (id, updates) => {
+        const state = get();
+        const idx = state.tasks.findIndex((t) => t.id === id);
+        if (idx === -1) return;
 
-      checkDailyReset: () => 
+        const task = state.tasks[idx];
+        const wasCompleted = task.completed;
+        const willComplete = updates.completed === true && !wasCompleted;
+
+        if (updates.scheduledFor && !task.scheduledFor) {
+          const draft = { ...task, ...updates };
+          scheduleNotificationsForTask(get, draft);
+        }
+
+        if (updates.completed && wasCompleted === false) {
+          cancelNotificationsForTask(task);
+          setTimeout(() => handleRecurringCompletion(get, { ...task, ...updates }), 0);
+        }
+
+        set((s) => {
+          const i = s.tasks.findIndex((t) => t.id === id);
+          if (i === -1) return s;
+          const newTasks = [...s.tasks];
+          let updated = { ...newTasks[i], ...updates };
+          if (willComplete) {
+            updated = { ...updated, completedAt: new Date().toISOString() };
+          }
+          newTasks[i] = updated;
+          return { tasks: newTasks };
+        });
+      },
+
+      deleteTask: (id) => {
+        const task = get().tasks.find((t) => t.id === id);
+        if (task) cancelNotificationsForTask(task);
+        set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));
+      },
+
+      checkDailyReset: () =>
         set((state) => {
-            const today = new Date().toDateString();
-            if (state.lastResetDate !== today) {
-                
-                const yesterday = new Date();
-                yesterday.setDate(yesterday.getDate() - 1);
-                const snapshotDate = yesterday.toISOString().split('T')[0];
-                
-                const completedTasks = state.tasks.filter(t => t.completed).length;
-                const snapshot: DailySnapshot = {
-                  date: snapshotDate,
-                  attributes: { ...state.attributes },
-                  integrity: state.integrity,
-                  energy: state.energy,
-                  wallet: state.wallet,
-                  tasksCompleted: completedTasks,
-                  tasksTotal: state.tasks.length,
-                  evolutionStage: state.evolutionStage,
-                };
+          const today = new Date().toDateString();
+          if (state.lastResetDate === today) return state;
 
-                const updatedSnapshots = [snapshot, ...state.snapshots].slice(0, MAX_SNAPSHOTS);
-                
-                const missedIron = state.tasks.filter(t => t.isSystem && !t.completed).length;
-                const damage = missedIron * 10;
+          let working: VectorState = { ...state };
+          let last = parseResetDate(working.lastResetDate);
+          const todayDate = new Date();
+          todayDate.setHours(0, 0, 0, 0);
+          let iterations = 0;
 
-                const freshIronRules: Task[] = state.protocols.map(p => ({
-                    ...p, 
-                    id: crypto.randomUUID(), 
-                    completed: false,
-                    createdAt: new Date().toISOString(),
-                }));
+          const firstCloseDay = addDays(parseResetDate(working.lastResetDate), 1);
+          const willRunMultipleDays =
+            working.lastResetDate !== today && firstCloseDay < todayDate;
 
-                // Preserve all non-system tasks (both completed and incomplete)
-                const regularTasks = state.tasks.filter(t => !t.isSystem);
+          while (working.lastResetDate !== today && iterations < MAX_RESET_ITERATIONS) {
+            iterations++;
+            const closeDay = addDays(last, 1);
+            if (closeDay > todayDate) break;
+            const snapshotDate = toDateString(addDays(closeDay, -1));
+            const synthetic = willRunMultipleDays && closeDay.toDateString() !== today;
+            const partial = runOneDayReset(working, snapshotDate, synthetic);
+            working = {
+              ...working,
+              ...partial,
+              lastResetDate: closeDay.toDateString(),
+            };
+            last = closeDay;
+          }
 
-                return {
-                    integrity: Math.max(0, state.integrity - damage),
-                    energy: 100,
-                    tasks: [...freshIronRules, ...regularTasks],
-                    lastResetDate: today,
-                    snapshots: updatedSnapshots,
-                };
-            }
-            return state;
+          return {
+            ...working,
+            energy: 100,
+            lastResetDate: today,
+          };
         }),
 
       setIntegrity: (v) => set({ integrity: v }),
       updateWallet: (v) => set((s) => ({ wallet: s.wallet + v })),
-      
+
       processFocusSession: (mins, success, distract) => {
-          const s = get();
-          if (!success) { set({ integrity: Math.max(0, s.integrity - 5) }); return; }
-          
-          const penalty = distract * 10;
-          const xp = Math.max(0, mins - penalty);
-          const attr = { ...s.attributes.work };
-          attr.currentXP += xp;
-           while (attr.currentXP >= attr.xpToNextLevel) {
-              attr.currentXP -= attr.xpToNextLevel;
-              attr.level++;
-              attr.xpToNextLevel = Math.floor(attr.xpToNextLevel * 1.5);
-            }
-          
-          set((prev) => ({ 
-              attributes: { ...prev.attributes, work: attr } 
-          }));
-          
-          setTimeout(() => {
-            get().updateGoalProgress();
-          }, 0);
+        const s = get();
+        if (!success) {
+          set({ integrity: Math.max(0, s.integrity - 5) });
+          return;
+        }
+
+        const penalty = distract * 10;
+        const xp = Math.max(0, mins - penalty);
+        const attr = { ...s.attributes.work };
+        attr.currentXP += xp;
+        while (attr.currentXP >= attr.xpToNextLevel) {
+          attr.currentXP -= attr.xpToNextLevel;
+          attr.level++;
+          attr.xpToNextLevel = Math.floor(attr.xpToNextLevel * 1.5);
+        }
+
+        set((prev) => ({
+          attributes: { ...prev.attributes, work: attr },
+        }));
+
+        setTimeout(() => get().updateGoalProgress(), 0);
       },
 
       exportData: () => {
         const state = get();
-        const exportData: ExportData = {
+        const exportedAt = new Date().toISOString();
+        const exportPayload: ExportData = {
           version: '2.0.0',
-          exportedAt: new Date().toISOString(),
+          exportedAt,
           data: {
             attributes: state.attributes,
             integrity: state.integrity,
@@ -264,47 +352,52 @@ export const useVectorStore = create<VectorState>()(
             goals: state.goals,
             templates: state.templates,
           },
-          metadata: {
-            appVersion: '2.0.0',
-          },
+          metadata: { appVersion: '2.0.0' },
         };
-        const jsonString = JSON.stringify(exportData, null, 2);
-        
-        setTimeout(async () => {
-          const { getSyncStatus, pushToGist } = await import('@/lib/gistSync');
+        const jsonString = JSON.stringify(exportPayload, null, 2);
+        setLastExportAt(exportedAt);
+
+        void (async () => {
+          const { getSyncStatus, pushToGistDebounced } = await import('@/lib/gistSync');
           const syncStatus = getSyncStatus();
-          if (syncStatus.enabled && !syncStatus.syncing) {
+          if (syncStatus.enabled) {
             try {
-              await pushToGist(jsonString);
+              await pushToGistDebounced(jsonString);
             } catch (error) {
               console.error('Auto-sync failed:', error);
             }
           }
-        }, 1000);
-        
+        })();
+
         return jsonString;
       },
 
       importData: (jsonString: string) => {
         try {
-          const parsed: ExportData = JSON.parse(jsonString);
-          
-          if (!parsed.data || !parsed.data.attributes || !parsed.data.tasks) {
-            throw new Error('Invalid data format');
-          }
+          const parsed = migrateExportData(JSON.parse(jsonString) as ExportData);
+          const tasks = parsed.data.tasks.map(migrateTask);
 
           set({
             attributes: parsed.data.attributes,
             integrity: parsed.data.integrity ?? 100,
             energy: parsed.data.energy ?? 100,
             wallet: parsed.data.wallet ?? 0,
-            tasks: parsed.data.tasks,
-            protocols: parsed.data.protocols ?? parsed.data.tasks.filter(t => t.isSystem),
+            tasks,
+            protocols: parsed.data.protocols.map(migrateTask),
             lastResetDate: parsed.data.lastResetDate ?? new Date().toDateString(),
             evolutionStage: parsed.data.evolutionStage ?? 1,
             snapshots: parsed.data.snapshots ?? [],
             goals: parsed.data.goals ?? [],
             templates: parsed.data.templates ?? [],
+          });
+
+          if (parsed.exportedAt) setLastExportAt(parsed.exportedAt);
+
+          const now = new Date();
+          tasks.forEach((task) => {
+            if (task.scheduledFor && !task.completed && new Date(task.scheduledFor) > now) {
+              scheduleNotificationsForTask(get, { ...task, notificationIds: undefined, notificationId: undefined });
+            }
           });
 
           return true;
@@ -341,16 +434,17 @@ export const useVectorStore = create<VectorState>()(
       },
 
       removeGoal: (id) => {
-        set((state) => ({ goals: state.goals.filter(g => g.id !== id) }));
+        set((state) => ({ goals: state.goals.filter((g) => g.id !== id) }));
       },
 
       updateGoalProgress: () => {
         set((state) => {
-          const updatedGoals = state.goals.map(goal => {
+          const updatedGoals = state.goals.map((goal) => {
             if (goal.completed) return goal;
 
             let currentValue = 0;
-            let targetValue = goal.targetValue;
+            const targetValue = goal.targetValue;
+            const now = new Date();
 
             switch (goal.targetType) {
               case 'attribute_level':
@@ -360,9 +454,25 @@ export const useVectorStore = create<VectorState>()(
                 break;
               case 'tasks_completed':
                 if (goal.type === 'daily') {
-                  currentValue = state.tasks.filter(t => t.completed).length;
+                  currentValue = state.tasks.filter((t) => t.completed).length;
+                } else if (goal.type === 'weekly') {
+                  const weekStart = new Date(now);
+                  weekStart.setDate(now.getDate() - now.getDay());
+                  weekStart.setHours(0, 0, 0, 0);
+                  const rangeSnaps = getSnapshotsInRange(
+                    state.snapshots,
+                    weekStart.toISOString(),
+                    now.toISOString()
+                  );
+                  currentValue = rangeSnaps.reduce((sum, s) => sum + s.tasksCompleted, 0);
                 } else {
-                  currentValue = state.snapshots.reduce((sum, s) => sum + s.tasksCompleted, 0);
+                  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                  const rangeSnaps = getSnapshotsInRange(
+                    state.snapshots,
+                    monthStart.toISOString(),
+                    now.toISOString()
+                  );
+                  currentValue = rangeSnaps.reduce((sum, s) => sum + s.tasksCompleted, 0);
                 }
                 break;
               case 'integrity':
@@ -373,16 +483,11 @@ export const useVectorStore = create<VectorState>()(
                 break;
             }
 
-            const progress = Math.min(100, (currentValue / targetValue) * 100);
+            const progress = targetValue > 0 ? Math.min(100, (currentValue / targetValue) * 100) : 0;
             const completed = currentValue >= targetValue;
             const completedAt = completed && !goal.completedAt ? new Date().toISOString() : goal.completedAt;
 
-            return {
-              ...goal,
-              progress,
-              completed,
-              completedAt,
-            };
+            return { ...goal, progress, completed, completedAt };
           });
 
           return { goals: updatedGoals };
@@ -401,23 +506,33 @@ export const useVectorStore = create<VectorState>()(
       },
 
       removeTemplate: (id) => {
-        set((state) => ({ templates: state.templates.filter(t => t.id !== id) }));
+        set((state) => ({ templates: state.templates.filter((t) => t.id !== id) }));
       },
 
       applyTemplate: (templateId) => {
         const state = get();
-        const template = state.templates.find(t => t.id === templateId);
+        const template = state.templates.find((t) => t.id === templateId);
         if (!template) return;
 
-        const newTasks = template.tasks.map(task => ({
-          ...task,
-          id: crypto.randomUUID(),
-          completed: false,
-        }));
+        const newTasks: Task[] = template.tasks.map((task) => taskFromTemplateEntry(task));
 
         set((s) => ({ tasks: [...s.tasks, ...newTasks] }));
-      }
+      },
     }),
-    { name: 'vector-storage', storage: createJSONStorage(() => localStorage) }
+    {
+      name: 'vector-storage',
+      version: PERSIST_SCHEMA_VERSION,
+      storage: createJSONStorage(() => idbStorage),
+      migrate: (persisted: unknown) =>
+        migratePersistedState(persisted as PersistedGameState),
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) {
+          console.error('Vector persist rehydrate failed (storage may be full):', error);
+          useStorageErrorStore.getState().setMessage(
+            'Could not load saved data. Export a backup if you have one.'
+          );
+        }
+      },
+    }
   )
 );

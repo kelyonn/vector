@@ -1,258 +1,95 @@
-# VECTOR // Life Operating System
+# Vector
 
-![Vector Banner](public/vite.svg)
+Vector is a gamified life operating system built with React and Capacitor. It tracks six life attributes, enforces daily protocols (Iron Rules), and surfaces progress through statistics, achievements, and charts.
 
-**Vector** is a high-performance, gamified life operating system designed to enforce discipline through RPG mechanics and data visualization. It replaces traditional to-do lists with a "Character Sheet" for your life, featuring attribute tracking, mandatory protocols, and punitive logic.
+**Version:** 2.0.0
 
-**Version 2.0.0** - Now with Data Safety, Statistics, and Achievements
+## Features
 
----
+- **Attribute matrix** — Strength, Intellect, Create, Mind, Work, and Others; actions grant XP and level-ups.
+- **Iron Rules** — Mandatory daily protocols that reset at midnight; default rules cannot be removed.
+- **Midnight reset** — Iron Rules reset, energy restores, daily snapshots saved; missed Iron Rules reduce system integrity.
+- **Tasks** — Immediate, scheduled, and recurring tasks with priorities, filters, and native reminders.
+- **Focus timer** — Deep-work sessions with optional strict mode penalties.
+- **Statistics** — Historical snapshots (365 days), streaks, charts, and attribute growth.
+- **Achievements** — Milestones for streaks, levels, task volume, and perfect days.
+- **Goals and templates** — Daily, weekly, and monthly targets; reusable task sets.
+- **Data safety** — JSON export/import, optional GitHub Gist sync, IndexedDB persistence with legacy localStorage migration.
 
-## Core Systems
+## Tech stack
 
-### 1. The 6-Point Attribute Matrix
-Every action feeds into a specific attribute, leveling up your avatar:
-* **STRENGTH:** Physical training, sleep, hydration.
-* **INTELLECT:** Reading, studying, learning.
-* **CREATE:** Engineering, writing, building.
-* **MIND:** Meditation, clarity, environment.
-* **WORK:** Deep work sessions.
-* **OTHERS:** Logistics and errands.
+| Layer | Technology |
+|-------|------------|
+| UI | React, TypeScript, Tailwind CSS, Framer Motion |
+| Build | Vite |
+| State | Zustand (persisted via `idb-keyval`) |
+| Charts | Recharts |
+| Mobile | Capacitor (Android / iOS) |
 
-### 2. The Iron Rules (Daily Protocols)
-Mandatory tasks that regenerate **every day at 00:00**. Default Iron Rules cannot be removed; you may add custom rules or remove only user-added ones.
-* *Sleep 6hr+*
-* *Drink 3L Water*
-* *Clean Room*
-* *Shower / Groom*
+## Quick start
 
-### 3. The Midnight Purge (00:00 Reset)
-The system runs a hard reset at midnight:
-* **Iron Rules Reset:** All Iron Rules are reset to incomplete (new IDs generated).
-* **Regular Tasks Preserved:** Completed and incomplete regular tasks persist across resets.
-* **Damage Taken:** Missed "Iron Rules" inflict **-10% System Integrity** damage.
-* **Energy Reset:** Energy restores to 100%.
-* **Snapshot Saved:** Daily progress is automatically saved to history.
-
-### 4. Native Mobile Architecture
-Built with **Capacitor**, Vector runs as a native Android/iOS app with:
-* **Fullscreen Immersive Mode:** No browser bars.
-* **Haptic Feedback & Sound:** Auditory cues for actions.
-* **Safe Area Handling:** Optimized layout for notched devices.
-
----
-
-## New in v2.0.0
-
-### Statistics & Analytics Dashboard
-* **Historical Tracking:** Automatic daily snapshots (last 365 days)
-* **Progress Charts:** Visualize integrity, energy, and task completion over time
-* **Attribute Growth:** Track level gains across all attributes
-* **Key Metrics:** Total days, current/longest streaks, average performance
-* **Best Day Tracking:** See your highest performing day
-
-### Achievement System
-Unlock 11 achievements as you progress:
-* **First Steps** - Complete your first day
-* **Week Warrior** - 7-day streak
-* **Month Master** - 30-day streak
-* **Level Milestones** - Reach levels 10, 25, 50, 100
-* **Perfectionist** - Complete all tasks in a day
-* **Task Master** - Complete 1000 tasks total
-* **Evolution Milestones** - Reach Evolution Stages 5 and 10
-
-### Task Management & Scheduling
-* **Scheduled Tasks:** Set tasks for specific dates and times
-* **Recurring Tasks:** Daily, weekly, monthly, weekdays, or weekends
-* **Task Reminders:** Configurable notifications before scheduled time
-* **Priority Levels:** Low, medium, high priority tasks
-* **Task Filters:** View all, immediate, scheduled, overdue, today, or completed tasks
-* **Persistent Tasks:** Completed tasks remain visible until manually deleted
-
-### Goals & Templates
-* **Goal System:** Set daily, weekly, or monthly goals for attributes, tasks, integrity, or evolution
-* **Task Templates:** Create reusable task sets for projects or routines
-* **Progress Tracking:** Visual progress bars and automatic goal updates
-
-### Data Safety & Management
-* **Export/Import:** Backup and restore your data as JSON files
-* **GitHub Gist Sync:** Optional cloud sync via GitHub Gist (requires a Personal Access Token with `gist` scope; newer local exports win on conflict)
-* **Settings Page:** Centralized data management
-* **Data Versioning:** Future-proof data format for migrations
-* **Reset Option:** Start fresh with confirmation
-
-### Mobile Enhancements
-* **Local Notifications:** Daily reminders for Iron Rules and goals (requires a native Android/iOS build; not available in browser dev mode)
-* **Task Notifications:** Notifications for scheduled and overdue tasks
-* **Haptic Feedback:** Tactile feedback for key interactions
-* **Optimized UI:** Improved spacing and visual hierarchy
-
----
-
-## Tech Stack
-
-* **Core:** React, TypeScript, Vite
-* **State:** Zustand (persisted to IndexedDB via `idb-keyval`; auto-migrates from legacy localStorage on first load)
-* **UI:** Tailwind CSS, Framer Motion, Lucide Icons
-* **Data Viz:** Recharts (Radar, Line, Area, Bar Charts)
-* **Mobile:** Capacitor (Android/iOS Native Bridge)
-
----
-
-## Installation & Development
-
-### 1. Web Development
 ```bash
-# Install dependencies
 npm install
-
-# Run local server
 npm run dev
 ```
 
-### 2. Building for Android
+Open the URL shown in the terminal (default `http://localhost:5173`).
 
-Vector uses Capacitor to build a native Android app.
+## Android
 
-**Prerequisites:** 
-- Android Studio installed ([Download](https://developer.android.com/studio))
-- Android SDK (API 33+)
-- JDK 17+
+**Requirements:** Android Studio, Android SDK (API 33+), JDK 17+.
 
-**Quick Start:**
 ```bash
-# Build and sync in one command
-npm run sync:android
-
-# Open Android Studio
-npm run open:android
+npm run sync:android   # build web assets and sync to native project
+npm run open:android   # open Android Studio
 ```
 
-**Detailed Steps:**
-```bash
-# 1. Build the React web assets
-npm run build
+In Android Studio, wait for Gradle sync, select a device or emulator, then Run.
 
-# 2. Sync web assets to Native Android project
-npx cap sync android
+**Package ID:** `com.vector.app`. If you previously installed a build under `com.example.app`, export your data, uninstall the old app, then install the new build. Data does not transfer automatically between package IDs.
 
-# 3. Open Android Studio
-npx cap open android
-```
+**Notifications** (Iron Rules, goals, scheduled tasks) require a native build; they do not run in browser dev mode.
 
-**In Android Studio:**
-1. Wait for Gradle sync to complete
-2. Select device/emulator from dropdown
-3. Click **Run** button (▶️) or press `Shift + F10`
-4. App will install and launch
+## Data management
 
-**For detailed Android Studio setup, see [ANDROID_STUDIO_GUIDE.md](./ANDROID_STUDIO_GUIDE.md)**
+1. Open **Settings** from the app header.
+2. **Export Backup** — downloads a JSON file (state, snapshots, version metadata).
+3. **Import Backup** — restores from a prior export.
 
-**Upgrading from an older APK (`com.example.app`):** Uninstall the old app first, then run `npm run sync:android` and install the new build (`com.vector.app`). App data does not transfer automatically between package IDs.
+Optional **GitHub Gist sync** needs a Personal Access Token with `gist` scope. Newer local exports take precedence on conflict.
 
----
-
-## Usage Guide
-
-### Main Views
-
-1. **Dashboard (System):** View your Metric Radar, Attribute Levels, Focus Timer, and Nexus.
-2. **Tasks (Operations):** Manage daily tasks. Toggle **"IRON RULES"** to edit mandatory protocols.
-3. **Statistics:** View your progress charts, streaks, and analytics (New in v2.0.0).
-4. **Ledger:** Tap "ASSETS" in the header to track liquid wealth.
-5. **Settings:** Tap the gear icon to export/import data or reset your progress.
-
-### Key Features
-
-* **Focus Mode:** Use the timer for deep work. Enabling **"STRICT"** mode penalizes you for switching apps.
-* **Task Scheduling:** Schedule tasks with dates, times, recurrence, and reminders.
-* **Task Persistence:** Completed tasks stay visible until you manually delete them.
-* **Daily Snapshots:** Your progress is automatically saved each day at midnight reset.
-* **Export/Import:** Regularly backup your data using the Settings page.
-* **Cloud Sync:** Optional GitHub Gist sync for multi-device access.
-* **Achievements:** Track your milestones and unlock achievements as you progress.
-* **Goals & Templates:** Set goals and create reusable task templates.
-
-### Mobile Navigation
-
-* **SYSTEM:** Dashboard view with Nexus, Radar, and Attributes
-* **TASKS:** Task management and Iron Rules
-* **STATS:** Statistics and Achievements (New in v2.0.0)
-
----
-
-## Data Management
-
-### Exporting Data
-1. Open Settings (gear icon in top bar)
-2. Click "Export Backup"
-3. A JSON file will download with all your data, including historical snapshots
-
-### Importing Data
-1. Open Settings
-2. Click "Import Backup"
-3. Select your previously exported JSON file
-4. All data will be restored, including snapshots and achievements
-
-### Data Format
-Exported data includes:
-* Current state (attributes, tasks, protocols, stats)
-* Historical snapshots (last 365 days)
-* Version information for future compatibility
-
----
-
-## Project Structure
+## Project layout
 
 ```
 src/
-├── components/     # React components
-│   ├── Achievements.tsx
-│   ├── Settings.tsx
-│   ├── Statistics.tsx
-│   └── ...
-├── constants/      # App constants
-├── lib/           # Utility functions
-│   └── statistics.ts
-├── store/         # Zustand state management
-├── types/         # TypeScript type definitions
-└── ...
+├── components/   # UI (dashboard, tasks, stats, settings, …)
+├── constants/    # App IDs and version
+├── lib/          # Persistence, sync, notifications, statistics
+├── store/        # Zustand stores
+└── types/        # TypeScript definitions
 ```
 
----
+## Scripts
 
-## Android Studio Guide
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Local development server |
+| `npm run build` | Production web build |
+| `npm run lint` | ESLint |
+| `npm run sync:android` | Build and `cap sync android` |
+| `npm run open:android` | Open the Android project in Android Studio |
 
-For complete setup instructions, troubleshooting, and build guide, see:
-**[ANDROID_STUDIO_GUIDE.md](./ANDROID_STUDIO_GUIDE.md)**
+## Release notes (v2.0.0)
 
-Quick commands:
-- `npm run sync:android` - Build and sync to Android
-- `npm run open:android` - Open in Android Studio
+- Statistics and analytics dashboard
+- Achievement system
+- Export/import and Gist sync
+- Goals, templates, and scheduled tasks
+- IndexedDB persistence with localStorage migration
+- Native notifications and haptics
+- Code-split bundles and lazy-loaded views
+- Android package rename to `com.vector.app`
 
-## Roadmap
+## License
 
-See [IMPROVEMENTS_ROADMAP.md](./IMPROVEMENTS_ROADMAP.md) for future enhancements.
-
----
-
-## Version History
-
-**v2.0.0** - Current Release
-- ✅ Statistics & Analytics Dashboard
-- ✅ Achievement System (11 unlockable achievements)
-- ✅ Data Safety & Management (Export/Import)
-- ✅ Goals/Targets System (daily, weekly, monthly)
-- ✅ Task Templates (reusable task sets)
-- ✅ Local Notifications (daily reminders, task notifications)
-- ✅ Haptic Feedback (tactile responses)
-- ✅ GitHub Gist Sync (optional cloud backup)
-- ✅ Scheduled Tasks (dates, times, recurrence, reminders)
-- ✅ Task Persistence (completed tasks remain visible)
-- ✅ Improved UI/UX (better spacing, visual hierarchy)
-- ✅ Task Filters (all, immediate, scheduled, overdue, today, completed)
-
----
-
-*System Status: ONLINE*
-*Version: 2.0.0*
+See repository settings or add a `LICENSE` file if you intend to open-source this project.

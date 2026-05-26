@@ -55,3 +55,6 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Local documentation (not published to the remote repo)
+docs/

@@ -89,7 +89,3 @@ src/
 - Native notifications and haptics
 - Code-split bundles and lazy-loaded views
 - Android package rename to `com.vector.app`
-
-## License
-
-See repository settings or add a `LICENSE` file if you intend to open-source this project.
